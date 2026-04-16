@@ -142,8 +142,12 @@ jobs:
           - 默认密码：无
           - 默认主题：Argon
           - 默认语言：简体中文
+          - IPv6 支持：已启用
           
-          集成插件：PassWall、Lucky、关机按钮、访问限制、内存释放、DDNS、磁盘管理、Samba、TTYD、ZeroTier 等
+          集成插件：
+          PassWall、Lucky、关机按钮、访问限制、内存释放、
+          DDNS（含 Cloudflare）、磁盘管理、Samba4、TTYD、
+          ZeroTier、文件传输、硬盘休眠、KMS 服务器、UDPXY
           EOF
           echo "status=success" >> $GITHUB_OUTPUT
 
