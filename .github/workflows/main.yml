@@ -10,7 +10,8 @@ env:
   REPO_URL: https://github.com/openwrt/openwrt
   REPO_BRANCH: main
   CONFIG_FILE: .config
-  DIY_SH: diy.sh
+  DIY1_SH: diy1.sh
+  DIY2_SH: diy2.sh
   FEEDS_CONF: feeds.conf.default
   TZ: Asia/Shanghai
   OPENWRT_NAME: "openwrt"
@@ -63,11 +64,11 @@ jobs:
       - name: 克隆 OpenWrt 源码
         run: git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
 
-      - name: 首次自定义配置
+      - name: 执行 diy1.sh（首次自定义）
         run: |
           cd openwrt
           [ -f "../$FEEDS_CONF" ] && cp "../$FEEDS_CONF" ./
-          [ -f "../$DIY_SH" ] && chmod +x "../$DIY_SH" && "../$DIY_SH"
+          [ -f "../$DIY1_SH" ] && chmod +x "../$DIY1_SH" && "../$DIY1_SH"
 
       - name: 更新 feeds
         run: |
@@ -75,11 +76,15 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: 再次加载自定义配置
+      - name: 执行 diy2.sh（再次自定义）
+        run: |
+          cd openwrt
+          [ -f "../$DIY2_SH" ] && chmod +x "../$DIY2_SH" && "../$DIY2_SH"
+
+      - name: 加载配置并执行 defconfig
         run: |
           [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" openwrt/.config
           cd openwrt
-          [ -f "../$DIY_SH" ] && chmod +x "../$DIY_SH" && "../$DIY_SH"
           make defconfig
 
       - name: 下载源码包
