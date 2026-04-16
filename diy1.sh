@@ -39,4 +39,10 @@ git clone --depth 1 https://github.com/gdy666/luci-app-lucky.git package/luci-ap
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git package/openwrt-passwall-packages
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall.git package/luci-app-passwall
 
+# Autocore（系统信息显示：CPU温度、频率等）
+git clone --depth 1 https://github.com/immortalwrt/autocore.git package/autocore
+
+# USB 自动共享（插入U盘自动挂载并共享）
+git clone --depth 1 https://github.com/sbwml/autosamba.git package/autosamba
+
 echo "✅ diy1.sh 执行完成"
