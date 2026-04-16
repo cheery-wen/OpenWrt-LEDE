@@ -66,31 +66,3 @@
 | 默认主题 | Argon |
 | 分区大小 | 内核 32MB / 根分区 320MB |
 | IPv6 支持 | 完整启用 |
-
-## 📁 文件说明
-
-### 文件详解
-
-| 文件 | 执行时机 | 主要功能 |
-|------|----------|----------|
-| `build.yml` | 全程 | 定义 GitHub Actions 编译流程 |
-| `.config` | `make defconfig` 时 | 指定要编译的软件包和内核模块 |
-| `diy1.sh` | 克隆源码后、更新 feeds 前 | 修改默认配置、克隆第三方插件源码 |
-| `diy2.sh` | 更新 feeds 后、加载配置前 | 设置默认语言和默认主题 |
-
-🙏 致谢
-
-由衷感谢所有为 OpenWrt 无私奉献的开发者们！
-
-特别感谢以下项目
-
-· OpenWrt - 官方源码
-· luci-theme-argon - Argon 主题
-· openwrt-passwall - PassWall 插件
-· luci-app-lucky - Lucky 插件
-· Lienol/openwrt-package - 访问限制、内存释放插件
-· esirplayground - 关机按钮插件
-
-📜 许可证
-
-本项目遵循 GPL-2.0 开源协议。
