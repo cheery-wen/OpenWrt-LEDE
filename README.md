@@ -68,3 +68,34 @@
 | IPv6 支持 | 完整启用 |
 
 ## 📁 文件说明
+
+### 文件详解
+
+| 文件 | 执行时机 | 主要功能 |
+|------|----------|----------|
+| `build.yml` | 全程 | 定义 GitHub Actions 编译流程 |
+| `.config` | `make defconfig` 时 | 指定要编译的软件包和内核模块 |
+| `diy1.sh` | 克隆源码后、更新 feeds 前 | 修改默认配置、克隆第三方插件源码 |
+| `diy2.sh` | 更新 feeds 后、加载配置前 | 设置默认语言和默认主题 |
+
+## 🚀 使用方法
+
+### 1. Fork 本仓库
+点击右上角 `Fork` 按钮，将仓库复制到您的 GitHub 账户。
+
+### 2. 触发编译
+编译会在以下情况自动触发：
+- 推送代码到 `master` 分支
+- 手动在 Actions 页面点击 `Run workflow`
+
+### 3. 下载固件
+编译完成后（约 1.5-2.5 小时），固件会出现在：
+- **Actions Artifact**：工作流运行页面的 `Artifacts` 区域
+- **Releases**：仓库的 Releases 页面（自动创建）
+
+## 🔄 自定义修改
+
+### 修改默认 IP
+编辑 `diy1.sh`，修改第 1 步中的 IP 地址：
+```bash
+sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generate
