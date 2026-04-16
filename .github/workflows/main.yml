@@ -41,6 +41,8 @@ jobs:
 
       - name: 检出仓库代码
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: 设置当前的日期
         run: |
@@ -87,12 +89,14 @@ jobs:
           cd openwrt
           make defconfig
 
-      - name: 下载源码包
+      - name: 下载源码包（增强重试）
         run: |
           cd openwrt
-          make download -j8
+          make download -j8 V=s || make download -j1 V=s || make download -j1 V=s
           find dl -size -1024c -exec ls -l {} \;
-          make download -j8 || make download -j1 V=s
+          # 检查并删除空文件后重试
+          find dl -size -1024c -exec rm -f {} \;
+          make download -j1 V=s 2>/dev/null || true
 
       - name: 编译固件
         id: compile
@@ -103,6 +107,7 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
           grep '^CONFIG_TARGET_.*_DEVICE_.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV
+          [ ! -s DEVICE_NAME ] && echo "DEVICE_NAME=generic" >> $GITHUB_ENV
 
       - name: 检查磁盘使用情况
         if: (!cancelled())
@@ -139,6 +144,9 @@ jobs:
         id: release
         if: steps.organize.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
+          # 获取最近一次 .config 相关的提交信息
+          CONFIG_CHANGE=$(git log -1 --pretty=format:"%s (%cd)" --date=short -- .config diy1.sh diy2.sh 2>/dev/null || echo "初始配置")
+          
           cat > release.txt <<EOF
           由衷感谢所有为 OpenWrt 无私奉献的大佬们
           
@@ -148,11 +156,20 @@ jobs:
           - 默认主题：Argon
           - 默认语言：简体中文
           - IPv6 支持：已启用
+          - 编译日期：${{ env.date3 }}
           
-          集成插件：
+          🔧 配置变更
+          $CONFIG_CHANGE
+          
+          📦 集成插件
           PassWall、Lucky、关机按钮、访问限制、内存释放、
           DDNS（含 Cloudflare）、磁盘管理、Samba4、TTYD、
           ZeroTier、文件传输、硬盘休眠、KMS 服务器、UDPXY
+          
+          🔗 源码信息
+          - OpenWrt 版本：${{ env.REPO_BRANCH }}
+          - 内核版本：跟随官方最新
+          - 设备型号：${{ env.DEVICE_NAME }}
           EOF
           echo "status=success" >> $GITHUB_OUTPUT
 
