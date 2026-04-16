@@ -78,24 +78,19 @@
 | `diy1.sh` | 克隆源码后、更新 feeds 前 | 修改默认配置、克隆第三方插件源码 |
 | `diy2.sh` | 更新 feeds 后、加载配置前 | 设置默认语言和默认主题 |
 
-## 🚀 使用方法
+🙏 致谢
 
-### 1. Fork 本仓库
-点击右上角 `Fork` 按钮，将仓库复制到您的 GitHub 账户。
+由衷感谢所有为 OpenWrt 无私奉献的开发者们！
 
-### 2. 触发编译
-编译会在以下情况自动触发：
-- 推送代码到 `master` 分支
-- 手动在 Actions 页面点击 `Run workflow`
+特别感谢以下项目
 
-### 3. 下载固件
-编译完成后（约 1.5-2.5 小时），固件会出现在：
-- **Actions Artifact**：工作流运行页面的 `Artifacts` 区域
-- **Releases**：仓库的 Releases 页面（自动创建）
+· OpenWrt - 官方源码
+· luci-theme-argon - Argon 主题
+· openwrt-passwall - PassWall 插件
+· luci-app-lucky - Lucky 插件
+· Lienol/openwrt-package - 访问限制、内存释放插件
+· esirplayground - 关机按钮插件
 
-## 🔄 自定义修改
+📜 许可证
 
-### 修改默认 IP
-编辑 `diy1.sh`，修改第 1 步中的 IP 地址：
-```bash
-sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generate
+本项目遵循 GPL-2.0 开源协议。
