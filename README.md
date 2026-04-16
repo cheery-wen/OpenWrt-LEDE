@@ -67,17 +67,7 @@
 | 分区大小 | 内核 32MB / 根分区 320MB |
 | IPv6 支持 | 完整启用 |
 
-🙏 致谢
+##🙏 致谢
 
 由衷感谢所有为 OpenWrt 生态无私奉献的开发者们！
 
-🌟 特别感谢以下项目
-
-项目 作者 说明
-OpenWrt OpenWrt Team 官方源码
-luci-theme-argon jerrykuku Argon 主题
-luci-app-argon-config jerrykuku Argon 配置工具
-openwrt-passwall xiaorouji PassWall 插件
-luci-app-lucky gdy666 Lucky 插件
-luci-app-poweroff esirplayground 关机按钮
-openwrt-package Lienol 访问限制、内存释放
