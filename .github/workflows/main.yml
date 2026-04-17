@@ -208,12 +208,4 @@ jobs:
           find ${{ matrix.target }}/bin/targets -type f \
             \( -name "*.bin" -o -name "*.img.gz" -o -name "*.vmdk" -o -name "*.vdi" \
             -o -name "*.vhdx" -o -name "*.qcow2" -o -name "config.buildinfo" \) \
-            -exec cp -v {} firmware/ \; 2>/dev/null || true
-          
-          cd firmware
-          
-          for f in *; do
-            if [ -f "$f" ]; then
-              case "$f" in
-                config.buildinfo)
-                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE
+            -e
