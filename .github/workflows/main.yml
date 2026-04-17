@@ -94,28 +94,34 @@ jobs:
 
       - name: 执行 diy1.sh
         run: |
-          cd ${{ matrix.target }}
-          
-          # 显示将要添加的插件清单
+          # 显示将要添加的插件清单（在进入目录前）
           echo "========================================="
           echo "📦 ${{ matrix.name }} 将要添加的第三方插件："
           echo "========================================="
           
-          if [ -f "../${{ matrix.config_dir }}/diy1.sh" ]; then
+          if [ -f "${{ matrix.config_dir }}/diy1.sh" ]; then
             echo ""
             echo "🔍 分析 diy1.sh 中的插件："
             echo "-----------------------------------------"
             
-            # 提取 git clone 命令中的仓库地址（修正版）
-            grep -E "git clone" "../${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | \
-              grep -oE "github\.com/[^ ]+" | \
+            # 直接提取包含 github.com 的行中的仓库地址
+            grep -oE "https://github\.com/[^ ]+\.git" "${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | \
+              sed 's|https://github.com/||' | \
               sed 's/\.git$//' | \
               sed 's|^|  📌 |' | \
               sort -u
             
+            # 如果没有输出，显示提示
+            if [ $(grep -oE "https://github\.com/[^ ]+\.git" "${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | wc -l) -eq 0 ]; then
+              echo "  ⚠️ 未检测到 git clone 命令，请检查 diy1.sh"
+            fi
+            
             echo "-----------------------------------------"
             echo ""
           fi
+          
+          # 进入源码目录
+          cd ${{ matrix.target }}
           
           # 复制 feeds 配置
           if [ -f "../${{ matrix.config_dir }}/feeds.conf.default" ] && [ ! -f "./feeds.conf.default" ]; then
