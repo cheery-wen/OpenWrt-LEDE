@@ -23,14 +23,19 @@ echo "✅ 版本信息已更新（compiled by cheery）"
 rm -rf feeds/packages/net/onionshare-cli 2>/dev/null || true
 echo "✅ 问题包已删除"
 
-# ---------- 5. 更新 Golang 版本（修复 geoview 编译问题）----------
+# ---------- 5. 清理 Go 模块缓存 ----------
+echo "🗑️ 清理 Go 模块缓存..."
+rm -rf dl/go-mod-cache 2>/dev/null || true
+echo "✅ Go 缓存已清理"
+
+# ---------- 6. 更新 Golang 版本 ----------
 echo "📦 更新 Golang..."
 rm -rf feeds/packages/lang/golang
 rm -rf package/feeds/packages/golang
 git clone --depth 1 https://github.com/sbwml/packages_lang_golang -b 22.x feeds/packages/lang/golang
 echo "✅ Golang 已更新至 22.x"
 
-# ---------- 6. 删除可能冲突的自带插件 ----------
+# ---------- 7. 删除可能冲突的自带插件 ----------
 echo "🗑️ 删除可能冲突的自带插件..."
 rm -rf feeds/luci/themes/luci-theme-argon 2>/dev/null || true
 rm -rf package/feeds/luci/luci-theme-argon 2>/dev/null || true
@@ -44,7 +49,7 @@ rm -rf feeds/packages/net/lucky 2>/dev/null || true
 rm -rf package/feeds/packages/lucky 2>/dev/null || true
 echo "✅ 自带插件清理完成"
 
-# ---------- 7. 添加第三方插件 ----------
+# ---------- 8. 添加第三方插件 ----------
 echo "📦 添加第三方插件..."
 
 # Argon 主题与配置
@@ -71,6 +76,16 @@ echo "✅ Lucky 已添加"
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git package/openwrt-passwall-packages
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall.git package/luci-app-passwall
 echo "✅ PassWall 已添加"
+
+# ---------- 9. 修复 geoview ----------
+echo "📦 修复 geoview..."
+cd package/openwrt-passwall-packages
+rm -rf geoview 2>/dev/null || true
+git clone --depth 1 https://github.com/snowie2000/geoview.git
+cd geoview
+git checkout v0.2.4 2>/dev/null || echo "使用最新版本"
+cd ../../..
+echo "✅ geoview 已修复"
 
 echo "========================================="
 echo "✅ OpenWrt diy1.sh 执行完成"
