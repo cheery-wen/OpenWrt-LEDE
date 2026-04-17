@@ -72,6 +72,7 @@ jobs:
           echo "date1=$(date +'%Y.%m.%d-%H.%M')" >> $GITHUB_ENV
           echo "date2=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
           echo "date3=$(date '+%Y年%m月%d日')" >> $GITHUB_ENV
+          echo "✅ 日期设置完成"
 
       - name: 安装编译依赖
         env:
@@ -94,14 +95,41 @@ jobs:
       - name: 执行 diy1.sh
         run: |
           cd ${{ matrix.target }}
+          
+          # 显示将要添加的插件清单
+          echo "========================================="
+          echo "📦 ${{ matrix.name }} 将要添加的第三方插件："
+          echo "========================================="
+          
+          if [ -f "../${{ matrix.config_dir }}/diy1.sh" ]; then
+            echo ""
+            echo "🔍 分析 diy1.sh 中的插件："
+            echo "-----------------------------------------"
+            
+            # 提取 git clone 命令中的仓库地址
+            grep -E "^git clone" "../${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | \
+              sed -n 's/.*github.com\/\([^ ]*\).*/  📌 \1/p' | sort -u
+            
+            echo "-----------------------------------------"
+            echo ""
+          fi
+          
+          # 复制 feeds 配置
           if [ -f "../${{ matrix.config_dir }}/feeds.conf.default" ] && [ ! -f "./feeds.conf.default" ]; then
             cp "../${{ matrix.config_dir }}/feeds.conf.default" ./
             echo "✅ feeds.conf.default 已复制"
           fi
+          
+          # 执行 diy1.sh
           if [ -f "../${{ matrix.config_dir }}/diy1.sh" ]; then
+            echo ""
+            echo "🚀 开始执行 diy1.sh..."
+            echo "========================================="
             chmod +x "../${{ matrix.config_dir }}/diy1.sh"
             "../${{ matrix.config_dir }}/diy1.sh"
           fi
+          
+          echo ""
           echo "✅ diy1.sh 执行完成"
 
       - name: 更新 feeds
@@ -124,11 +152,19 @@ jobs:
         run: |
           if [ -f "${{ matrix.config_dir }}/.config" ]; then
             cp "${{ matrix.config_dir }}/.config" ${{ matrix.target }}/.config
-            echo "✅ 配置文件已复制"
+            echo "✅ 配置文件已复制到 ${{ matrix.target }}/.config"
+          else
+            echo "⚠️ 配置文件 ${{ matrix.config_dir }}/.config 不存在，将使用默认配置"
           fi
           cd ${{ matrix.target }}
           make defconfig
           echo "✅ defconfig 执行完成"
+
+      - name: 验证目标设备
+        run: |
+          cd ${{ matrix.target }}
+          echo "=== 当前目标设备配置 ==="
+          grep -E "^CONFIG_TARGET_(x86|mediatek|rockchip|ipq)" .config 2>/dev/null | head -5 || echo "未找到目标设备配置"
 
       - name: 缓存加速
         id: cache
