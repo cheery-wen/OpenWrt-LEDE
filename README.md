@@ -1,6 +1,6 @@
 # OpenWrt / LEDE 自动编译
 
-[![编译 OpenWrt / LEDE](https://github.com/OpenWrt-LEDE/OpenWrt-LEDE/actions/workflows/build.yml/badge.svg)](https://github.com/OpenWrt-LEDE/OpenWrt-LEDE/actions/workflows/build.yml)
+
 
 基于 GitHub Actions 的 OpenWrt/LEDE 双版本自动编译模板，专为 x86_64 平台优化。
 
