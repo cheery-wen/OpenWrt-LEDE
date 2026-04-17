@@ -26,8 +26,9 @@ echo "✅ 问题包已删除"
 # ---------- 5. 更新 Golang 版本（修复 geoview 编译问题）----------
 echo "📦 更新 Golang..."
 rm -rf feeds/packages/lang/golang
+rm -rf package/feeds/packages/golang
 git clone --depth 1 https://github.com/sbwml/packages_lang_golang -b 22.x feeds/packages/lang/golang
-echo "✅ Golang 已更新"
+echo "✅ Golang 已更新至 22.x"
 
 # ---------- 6. 删除可能冲突的自带插件 ----------
 echo "🗑️ 删除可能冲突的自带插件..."
