@@ -94,19 +94,6 @@ jobs:
 
       - name: 执行 diy1.sh
         run: |
-          # 调试：显示当前目录和文件结构
-          echo "=== 调试信息 ==="
-          echo "当前目录: $(pwd)"
-          echo "仓库根目录文件:"
-          ls -la
-          echo ""
-          echo "openwrt 目录内容:"
-          ls -la openwrt/ 2>/dev/null || echo "openwrt 目录不存在"
-          echo ""
-          echo "lede 目录内容:"
-          ls -la lede/ 2>/dev/null || echo "lede 目录不存在"
-          echo "================="
-          
           # 显示将要添加的插件清单
           echo "========================================="
           echo "📦 ${{ matrix.name }} 将要添加的第三方插件："
@@ -114,18 +101,11 @@ jobs:
           
           if [ -f "${{ matrix.config_dir }}/diy1.sh" ]; then
             echo ""
-            echo "🔍 分析 diy1.sh 中的插件："
+            echo "🔍 diy1.sh 中包含的 GitHub 仓库："
             echo "-----------------------------------------"
             
-            grep -oE "https://github\.com/[^ ]+\.git" "${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | \
-              sed 's|https://github.com/||' | \
-              sed 's/\.git$//' | \
-              sed 's|^|  📌 |' | \
-              sort -u
-            
-            if [ $(grep -oE "https://github\.com/[^ ]+\.git" "${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | wc -l) -eq 0 ]; then
-              echo "  ⚠️ 未检测到 git clone 命令"
-            fi
+            # 直接显示包含 github.com 的行
+            grep "github.com" "${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | head -20
             
             echo "-----------------------------------------"
             echo ""
