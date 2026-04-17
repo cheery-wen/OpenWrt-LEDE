@@ -49,12 +49,15 @@ jobs:
             default_password: "无"
 
     steps:
+      # ============================================
+      # 1. 环境准备
+      # ============================================
       - name: 释放磁盘空间
         run: |
           echo "=== 释放前磁盘空间 ==="
           df -h
           sudo apt-get clean
-          docker system prune -af || true
+          docker system prune -af 2>/dev/null || true
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android \
             /usr/local/lib/node_modules /opt/hostedtoolcache /usr/local/.ghcup /usr/local/.cargo \
             /usr/local/lib/python3.* /usr/local/aws-sam-cli /usr/local/aws-cli /usr/local/julia* \
@@ -66,103 +69,85 @@ jobs:
       - name: 检出仓库代码
         uses: actions/checkout@v5
 
-      - name: 查看文件结构（调试）
-        run: |
-          echo "========================================="
-          echo "📁 仓库文件结构"
-          echo "========================================="
-          echo "当前目录: $(pwd)"
-          echo ""
-          echo "=== 根目录文件 ==="
-          ls -la
-          echo ""
-          echo "=== openwrt 目录 ==="
-          ls -la openwrt/ 2>/dev/null || echo "❌ openwrt 目录不存在"
-          echo ""
-          echo "=== lede 目录 ==="
-          ls -la lede/ 2>/dev/null || echo "❌ lede 目录不存在"
-          echo ""
-          echo "=== 搜索 diy1.sh ==="
-          find . -name "diy1.sh" 2>/dev/null | head -10
-          echo ""
-          echo "=== 搜索 diy2.sh ==="
-          find . -name "diy2.sh" 2>/dev/null | head -10
-          echo ""
-          echo "=== 搜索 .config ==="
-          find . -name ".config" 2>/dev/null | head -10
-          echo "========================================="
-
       - name: 设置日期变量
         run: |
           sudo timedatectl set-timezone "$TZ"
           echo "date1=$(date +'%Y.%m.%d-%H.%M')" >> $GITHUB_ENV
           echo "date2=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
           echo "date3=$(date '+%Y年%m月%d日')" >> $GITHUB_ENV
-          echo "✅ 日期设置完成"
+          echo "✅ 日期: ${{ env.date3 }}"
 
       - name: 安装编译依赖
-        env:
-          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install build-essential asciidoc binutils bzip2 gawk gettext git \
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y build-essential asciidoc binutils bzip2 gawk gettext git \
             libncurses5-dev libz-dev patch python3 unzip zlib1g-dev lib32gcc-s1 libc6-dev-i386 \
             subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev \
             texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool \
             autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync
+          echo "✅ 依赖安装完成"
           df -h
 
+      # ============================================
+      # 2. 克隆源码
+      # ============================================
       - name: 克隆 ${{ matrix.name }} 源码
         run: |
           rm -rf ${{ matrix.target }}
           git clone --depth 1 ${{ matrix.repo_url }} -b ${{ matrix.repo_branch }} ${{ matrix.target }}
           echo "✅ ${{ matrix.name }} 源码克隆完成"
 
+      # ============================================
+      # 3. 执行 diy1.sh（首次自定义）
+      # ============================================
       - name: 执行 diy1.sh
         run: |
-          # 显示将要添加的插件清单
+          # 确保在仓库根目录
+          cd $GITHUB_WORKSPACE
+          
           echo "========================================="
-          echo "📦 ${{ matrix.name }} 将要添加的第三方插件："
+          echo "📦 ${{ matrix.name }} 第三方插件清单"
           echo "========================================="
           
           if [ -f "${{ matrix.config_dir }}/diy1.sh" ]; then
             echo ""
             echo "🔍 diy1.sh 中包含的 GitHub 仓库："
             echo "-----------------------------------------"
-            grep "github.com" "${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | head -20
+            grep -E "github\.com|git clone" "${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | \
+              grep -v "^#" | head -20 || echo "  (未检测到 git clone 命令)"
             echo "-----------------------------------------"
             echo ""
           else
-            echo "⚠️ 文件 ${{ matrix.config_dir }}/diy1.sh 不存在"
-            echo "当前目录: $(pwd)"
-            echo "查找 diy1.sh:"
-            find .. -name "diy1.sh" 2>/dev/null | head -5
+            echo "⚠️ 文件 ${{ matrix.config_dir }}/diy1.sh 不存在，跳过插件添加"
           fi
           
           # 进入源码目录
           cd ${{ matrix.target }}
           
           # 复制 feeds 配置
-          if [ -f "../${{ matrix.config_dir }}/feeds.conf.default" ] && [ ! -f "./feeds.conf.default" ]; then
-            cp "../${{ matrix.config_dir }}/feeds.conf.default" ./
-            echo "✅ feeds.conf.default 已复制"
+          if [ -f "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/feeds.conf.default" ]; then
+            if [ ! -f "./feeds.conf.default" ]; then
+              cp "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/feeds.conf.default" ./
+              echo "✅ feeds.conf.default 已复制"
+            fi
           fi
           
           # 执行 diy1.sh
-          if [ -f "../${{ matrix.config_dir }}/diy1.sh" ]; then
+          if [ -f "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh" ]; then
             echo ""
             echo "🚀 开始执行 diy1.sh..."
             echo "========================================="
-            chmod +x "../${{ matrix.config_dir }}/diy1.sh"
-            "../${{ matrix.config_dir }}/diy1.sh"
+            chmod +x "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh"
+            "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh"
+            echo "========================================="
+            echo "✅ diy1.sh 执行完成"
           else
-            echo ""
             echo "⚠️ 跳过 diy1.sh（文件不存在）"
           fi
-          
-          echo ""
-          echo "✅ diy1.sh 步骤完成"
 
+      # ============================================
+      # 4. 更新 feeds
+      # ============================================
       - name: 更新 feeds
         run: |
           cd ${{ matrix.target }}
@@ -170,24 +155,31 @@ jobs:
           ./scripts/feeds install -a
           echo "✅ feeds 更新完成"
 
+      # ============================================
+      # 5. 执行 diy2.sh（再次自定义）
+      # ============================================
       - name: 执行 diy2.sh
         run: |
           cd ${{ matrix.target }}
-          if [ -f "../${{ matrix.config_dir }}/diy2.sh" ]; then
-            chmod +x "../${{ matrix.config_dir }}/diy2.sh"
-            "../${{ matrix.config_dir }}/diy2.sh"
+          if [ -f "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy2.sh" ]; then
+            echo "🚀 开始执行 diy2.sh..."
+            chmod +x "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy2.sh"
+            "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy2.sh"
             echo "✅ diy2.sh 执行完成"
           else
             echo "⚠️ 跳过 diy2.sh（文件不存在）"
           fi
 
+      # ============================================
+      # 6. 加载配置
+      # ============================================
       - name: 加载配置
         run: |
-          if [ -f "${{ matrix.config_dir }}/.config" ]; then
-            cp "${{ matrix.config_dir }}/.config" ${{ matrix.target }}/.config
-            echo "✅ 配置文件已复制到 ${{ matrix.target }}/.config"
+          if [ -f "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/.config" ]; then
+            cp "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/.config" ${{ matrix.target }}/.config
+            echo "✅ 配置文件已复制"
           else
-            echo "⚠️ 配置文件 ${{ matrix.config_dir }}/.config 不存在，将使用默认配置"
+            echo "⚠️ 配置文件不存在，使用默认配置"
           fi
           cd ${{ matrix.target }}
           make defconfig
@@ -196,9 +188,12 @@ jobs:
       - name: 验证目标设备
         run: |
           cd ${{ matrix.target }}
-          echo "=== 当前目标设备配置 ==="
+          echo "=== 目标设备配置 ==="
           grep -E "^CONFIG_TARGET_(x86|mediatek|rockchip|ipq)" .config 2>/dev/null | head -5 || echo "未找到目标设备配置"
 
+      # ============================================
+      # 7. 缓存加速
+      # ============================================
       - name: 缓存加速
         id: cache
         uses: actions/cache@v5
@@ -217,24 +212,34 @@ jobs:
           if [ "${{ steps.cache.outputs.cache-hit }}" == "true" ]; then
             echo "✅ 缓存命中！编译将显著加速"
           else
-            echo "⚠️ 缓存未命中，将进行完整编译"
+            echo "⚠️ 缓存未命中，进行完整编译"
           fi
 
+      # ============================================
+      # 8. 下载源码包
+      # ============================================
       - name: 下载源码包
         run: |
           cd ${{ matrix.target }}
           echo "=== 下载源码包 ==="
           make download -j8 V=s || make download -j4 V=s || make download -j1 V=s || make download -j1 V=s
-          find dl -size -1024c -exec rm -f {} \;
+          find dl -size -1024c -exec rm -f {} \; 2>/dev/null || true
           make download -j1 V=s 2>/dev/null || true
           echo "✅ 下载完成"
 
+      # ============================================
+      # 9. 编译前清理
+      # ============================================
       - name: 编译前清理
         run: |
           cd ${{ matrix.target }}
           rm -rf tmp bin/packages 2>/dev/null || true
+          echo "=== 当前磁盘空间 ==="
           df -h .
 
+      # ============================================
+      # 10. 编译固件
+      # ============================================
       - name: 编译固件
         id: compile
         run: |
@@ -251,28 +256,39 @@ jobs:
             exit 1
           fi
           
+          # 后期处理（容错）
           make package/index V=s 2>/dev/null || true
           make checksum V=s 2>/dev/null || true
           
           echo "status=success" >> $GITHUB_OUTPUT
           
+          # 提取设备名称
           grep '^CONFIG_TARGET_.*_DEVICE_.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV || echo "DEVICE_NAME=generic" >> $GITHUB_ENV
+          echo "✅ 设备名称: $DEVICE_NAME"
 
-      - name: 检查磁盘
+      # ============================================
+      # 11. 检查磁盘
+      # ============================================
+      - name: 检查磁盘使用情况
         if: (!cancelled())
         run: |
           df -h
           du -sh ${{ matrix.target }} 2>/dev/null || true
 
+      # ============================================
+      # 12. 整理固件
+      # ============================================
       - name: 整理固件
         id: organize
         if: steps.compile.outcome == 'success'
         run: |
           mkdir -p firmware
           
+          # 复制配置文件
           cp -v ./${{ matrix.target }}/.config firmware/${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}.config
           
+          # 复制固件文件
           find ${{ matrix.target }}/bin/targets -type f \
             \( -name "*.bin" -o -name "*.img.gz" -o -name "*.vmdk" -o -name "*.vdi" \
             -o -name "*.vhdx" -o -name "*.qcow2" -o -name "config.buildinfo" \) \
@@ -280,6 +296,7 @@ jobs:
           
           cd firmware
           
+          # 重命名文件
           for f in *; do
             if [ -f "$f" ]; then
               case "$f" in
@@ -293,18 +310,26 @@ jobs:
             fi
           done
           
+          echo "=== 固件目录内容 ==="
           ls -la
           
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ 固件整理完成"
 
-      - name: 上传 Artifact
+      # ============================================
+      # 13. 上传 Artifact
+      # ============================================
+      - name: 上传固件到 Artifact
         if: steps.organize.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.target }}_${{ env.DEVICE_NAME }}_${{ env.date1 }}
           path: ${{ env.FIRMWARE }}
 
+      # ============================================
+      # 14. 生成 Release 描述
+      # ============================================
       - name: 生成 Release 描述
         id: release
         if: steps.organize.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
@@ -337,7 +362,11 @@ jobs:
           ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|vmdk|vdi|vhdx|qcow2)$" | sed 's/^/- /' >> release.txt
           
           echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ Release 描述生成完成"
 
+      # ============================================
+      # 15. 创建 Release
+      # ============================================
       - name: 创建 Release
         if: steps.release.outcome == 'success'
         uses: softprops/action-gh-release@v2
@@ -351,8 +380,12 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: 清理
+      # ============================================
+      # 16. 清理
+      # ============================================
+      - name: 编译后清理
         if: always()
         run: |
           rm -rf ${{ matrix.target }}/build_dir ${{ matrix.target }}/staging_dir ${{ matrix.target }}/tmp 2>/dev/null || true
+          echo "=== 最终磁盘空间 ==="
           df -h
