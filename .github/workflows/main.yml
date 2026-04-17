@@ -309,7 +309,7 @@ jobs:
           ### 📦 集成插件
           PassWall、Lucky、关机按钮、访问限制、内存释放、
           DDNS（Cloudflare）、磁盘管理、Samba4、TTYD、
-          ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠${{ matrix.target == 'openwrt' && '、Autocore、Autosamba' || '' }}
+          ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠
           
           ### 📁 固件文件
           EOF
