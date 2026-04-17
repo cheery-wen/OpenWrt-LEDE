@@ -23,7 +23,13 @@ echo "✅ 版本信息已更新（compiled by cheery）"
 rm -rf feeds/packages/net/onionshare-cli 2>/dev/null || true
 echo "✅ 问题包已删除"
 
-# ---------- 5. 删除可能冲突的自带插件 ----------
+# ---------- 5. 更新 Golang 版本（修复 geoview 编译问题）----------
+echo "📦 更新 Golang..."
+rm -rf feeds/packages/lang/golang
+git clone --depth 1 https://github.com/sbwml/packages_lang_golang -b 22.x feeds/packages/lang/golang
+echo "✅ Golang 已更新"
+
+# ---------- 6. 删除可能冲突的自带插件 ----------
 echo "🗑️ 删除可能冲突的自带插件..."
 rm -rf feeds/luci/themes/luci-theme-argon 2>/dev/null || true
 rm -rf package/feeds/luci/luci-theme-argon 2>/dev/null || true
@@ -37,7 +43,7 @@ rm -rf feeds/packages/net/lucky 2>/dev/null || true
 rm -rf package/feeds/packages/lucky 2>/dev/null || true
 echo "✅ 自带插件清理完成"
 
-# ---------- 6. 添加第三方插件 ----------
+# ---------- 7. 添加第三方插件 ----------
 echo "📦 添加第三方插件..."
 
 # Argon 主题与配置
