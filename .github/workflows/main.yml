@@ -87,6 +87,8 @@ jobs:
 
       - name: 克隆 ${{ matrix.name }} 源码
         run: |
+          # 确保目录不存在
+          rm -rf ${{ matrix.target }}
           git clone --depth 1 ${{ matrix.repo_url }} -b ${{ matrix.repo_branch }} ${{ matrix.target }}
           echo "✅ ${{ matrix.name }} 源码克隆完成"
 
