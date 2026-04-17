@@ -1,34 +1,55 @@
-name: 编译 OpenWrt (官方原版)
+name: 编译 OpenWrt / LEDE
 
 on:
   push:
     branches: [ master ]
-  repository_dispatch:
   workflow_dispatch:
+    inputs:
+      target:
+        description: '选择编译目标'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - 'openwrt'
+          - 'lede'
+          - 'both'
 
 env:
-  REPO_URL: https://github.com/openwrt/openwrt
-  REPO_BRANCH: main
-  CONFIG_FILE: .config
-  DIY1_SH: diy1.sh
-  DIY2_SH: diy2.sh
-  FEEDS_CONF: feeds.conf.default
   TZ: Asia/Shanghai
-  OPENWRT_NAME: "openwrt"
-  UPLOAD_RELEASE: true
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  UPLOAD_RELEASE: true
+  UPLOAD_FIRMWARE: true
 
 jobs:
   build:
-    name: 编译任务
+    name: 编译 ${{ matrix.name }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: openwrt
+            name: OpenWrt 官方版
+            repo_url: https://github.com/openwrt/openwrt
+            repo_branch: main
+            config_dir: openwrt
+            release_prefix: openwrt
+            default_password: "无"
+            
+          - target: lede
+            name: LEDE
+            repo_url: https://github.com/coolsnowwolf/lede
+            repo_branch: master
+            config_dir: lede
+            release_prefix: lede
+            default_password: "无"
 
     steps:
-      - name: 释放系统最大可用空间
+      - name: 释放磁盘空间
         run: |
           echo "=== 释放前磁盘空间 ==="
           df -h
@@ -44,16 +65,13 @@ jobs:
 
       - name: 检出仓库代码
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
-      - name: 设置当前的日期
+      - name: 设置日期变量
         run: |
           sudo timedatectl set-timezone "$TZ"
           echo "date1=$(date +'%Y.%m.%d-%H.%M')" >> $GITHUB_ENV
           echo "date2=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
           echo "date3=$(date '+%Y年%m月%d日')" >> $GITHUB_ENV
-          echo "✅ 日期设置完成"
 
       - name: 安装编译依赖
         env:
@@ -67,54 +85,59 @@ jobs:
             autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync
           df -h
 
-      - name: 克隆 OpenWrt 源码
+      - name: 克隆 ${{ matrix.name }} 源码
         run: |
-          git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
-          echo "✅ 源码克隆完成"
+          git clone --depth 1 ${{ matrix.repo_url }} -b ${{ matrix.repo_branch }} ${{ matrix.target }}
+          echo "✅ ${{ matrix.name }} 源码克隆完成"
 
-      - name: 执行 diy1.sh（首次自定义）
+      - name: 执行 diy1.sh
         run: |
-          cd openwrt
-          [ -f "../$FEEDS_CONF" ] && cp "../$FEEDS_CONF" ./
-          [ -f "../$DIY1_SH" ] && chmod +x "../$DIY1_SH" && "../$DIY1_SH"
+          cd ${{ matrix.target }}
+          [ -f "../${{ matrix.config_dir }}/feeds.conf.default" ] && cp "../${{ matrix.config_dir }}/feeds.conf.default" ./
+          if [ -f "../${{ matrix.config_dir }}/diy1.sh" ]; then
+            chmod +x "../${{ matrix.config_dir }}/diy1.sh"
+            "../${{ matrix.config_dir }}/diy1.sh"
+          fi
           echo "✅ diy1.sh 执行完成"
 
       - name: 更新 feeds
         run: |
-          cd openwrt
+          cd ${{ matrix.target }}
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           echo "✅ feeds 更新完成"
 
-      - name: 执行 diy2.sh（再次自定义）
+      - name: 执行 diy2.sh
         run: |
-          cd openwrt
-          [ -f "../$DIY2_SH" ] && chmod +x "../$DIY2_SH" && "../$DIY2_SH"
+          cd ${{ matrix.target }}
+          if [ -f "../${{ matrix.config_dir }}/diy2.sh" ]; then
+            chmod +x "../${{ matrix.config_dir }}/diy2.sh"
+            "../${{ matrix.config_dir }}/diy2.sh"
+          fi
           echo "✅ diy2.sh 执行完成"
 
-      - name: 加载配置并执行 defconfig
+      - name: 加载配置
         run: |
-          [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" openwrt/.config
-          cd openwrt
+          if [ -f "${{ matrix.config_dir }}/.config" ]; then
+            cp "${{ matrix.config_dir }}/.config" ${{ matrix.target }}/.config
+            echo "✅ 配置文件已复制"
+          fi
+          cd ${{ matrix.target }}
           make defconfig
           echo "✅ defconfig 执行完成"
 
-      # ============================================
-      # 缓存步骤（优化版）
-      # ============================================
-      - name: 缓存 dl、staging_dir、build_dir
+      - name: 缓存加速
         id: cache
         uses: actions/cache@v5
         with:
           path: |
-            openwrt/dl
-            openwrt/staging_dir
-            openwrt/build_dir
-          key: openwrt-x86-64-${{ hashFiles('.config', 'diy1.sh', 'diy2.sh') }}
+            ${{ matrix.target }}/dl
+            ${{ matrix.target }}/staging_dir
+            ${{ matrix.target }}/build_dir
+          key: ${{ matrix.target }}-x86-64-${{ hashFiles(format('{0}/.config', matrix.config_dir), format('{0}/diy1.sh', matrix.config_dir), format('{0}/diy2.sh', matrix.config_dir)) }}
           restore-keys: |
-            openwrt-x86-64-${{ hashFiles('.config', 'diy1.sh', 'diy2.sh') }}
-            openwrt-x86-64-
-            openwrt-
+            ${{ matrix.target }}-x86-64-
+            ${{ matrix.target }}-
 
       - name: 显示缓存状态
         run: |
@@ -124,196 +147,139 @@ jobs:
             echo "⚠️ 缓存未命中，将进行完整编译"
           fi
 
-      - name: 下载源码包（增强重试）
+      - name: 下载源码包
         run: |
-          cd openwrt
-          echo "=== 开始下载源码包 ==="
-          # 增强重试机制
+          cd ${{ matrix.target }}
+          echo "=== 下载源码包 ==="
           make download -j8 V=s || make download -j4 V=s || make download -j1 V=s || make download -j1 V=s
-          echo "=== 检查空文件 ==="
-          find dl -size -1024c -exec ls -l {} \;
-          echo "=== 删除空文件并重试 ==="
           find dl -size -1024c -exec rm -f {} \;
           make download -j1 V=s 2>/dev/null || true
-          echo "✅ 源码包下载完成"
+          echo "✅ 下载完成"
 
-      - name: 编译前检查与清理
+      - name: 编译前清理
         run: |
-          cd openwrt
-          echo "=== 编译前磁盘空间 ==="
-          df -h .
-          echo "=== 清理临时文件 ==="
-          rm -rf tmp 2>/dev/null || true
-          rm -rf bin/packages 2>/dev/null || true
+          cd ${{ matrix.target }}
+          rm -rf tmp bin/packages 2>/dev/null || true
           df -h .
 
       - name: 编译固件
         id: compile
         run: |
-          cd openwrt
-          echo -e "=== 开始编译，使用 $(nproc) 线程 ==="
+          cd ${{ matrix.target }}
+          echo "=== 开始编译，使用 $(nproc) 线程 ==="
           
-          # 执行编译
           make -j$(nproc) || make -j1 || make -j1 V=s
           
-          # 检查编译产物是否存在
-          if [ -d "bin/targets/x86/64" ] && [ -n "$(ls -A bin/targets/x86/64/*.bin 2>/dev/null)" ]; then
-            echo "✅ 固件编译成功"
-            ls -la bin/targets/x86/64/*.bin
+          BIN_COUNT=$(find bin/targets -name "*.bin" 2>/dev/null | wc -l)
+          if [ "$BIN_COUNT" -gt 0 ]; then
+            echo "✅ 固件编译成功（生成 $BIN_COUNT 个固件文件）"
           else
-            echo "❌ 固件文件不存在，编译可能失败"
-            echo "=== 检查 bin 目录内容 ==="
-            find bin -name "*.bin" 2>/dev/null || echo "未找到 .bin 文件"
+            echo "❌ 未找到固件文件"
             exit 1
           fi
           
-          # 手动执行后期步骤（容错处理）
-          echo "=== 执行后期处理步骤 ==="
-          make package/index V=s 2>/dev/null || echo "⚠️ package/index 失败，忽略"
-          make json_overview_image_info V=s 2>/dev/null || echo "⚠️ json_overview_image_info 失败，忽略"
-          make checksum V=s 2>/dev/null || echo "⚠️ checksum 失败，忽略"
+          make package/index V=s 2>/dev/null || true
+          make checksum V=s 2>/dev/null || true
           
           echo "status=success" >> $GITHUB_OUTPUT
           
-          # 提取设备名称
           grep '^CONFIG_TARGET_.*_DEVICE_.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-          [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV
-          [ ! -s DEVICE_NAME ] && echo "DEVICE_NAME=generic" >> $GITHUB_ENV
-          echo "✅ 设备名称: ${{ env.DEVICE_NAME }}"
+          [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV || echo "DEVICE_NAME=generic" >> $GITHUB_ENV
 
-      - name: 检查磁盘使用情况
+      - name: 检查磁盘
         if: (!cancelled())
         run: |
-          echo "=== 编译后磁盘空间 ==="
           df -h
-          echo "=== openwrt 目录大小 ==="
-          du -sh openwrt 2>/dev/null || true
-          echo "=== openwrt/bin 目录大小 ==="
-          du -sh openwrt/bin 2>/dev/null || true
+          du -sh ${{ matrix.target }} 2>/dev/null || true
 
-      - name: 整理固件文件
+      - name: 整理固件
         id: organize
         if: steps.compile.outcome == 'success'
         run: |
           mkdir -p firmware
           
-          # 复制配置文件
-          cp -v ./openwrt/.config firmware/${{ env.date1 }}_${{ env.OPENWRT_NAME }}_${{ env.DEVICE_NAME }}.config
+          cp -v ./${{ matrix.target }}/.config firmware/${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}.config
           
-          # 查找并复制固件文件
-          echo "=== 查找固件文件 ==="
-          find openwrt/bin/targets/*/*/ -maxdepth 1 -type f \
-            \( -name "config.buildinfo" \
-            -o -name "*squashfs-combined*" \
-            -o -name "*sysupgrade*" \
-            -o -name "*.bin" \
-            -o -name "*.img.gz" \
-            -o -name "*.vmdk" \
-            -o -name "*.vdi" \
-            -o -name "*.vhdx" \
-            -o -name "*.qcow2" \) \
+          find ${{ matrix.target }}/bin/targets -type f \
+            \( -name "*.bin" -o -name "*.img.gz" -o -name "*.vmdk" -o -name "*.vdi" \
+            -o -name "*.vhdx" -o -name "*.qcow2" -o -name "config.buildinfo" \) \
             -exec cp -v {} firmware/ \; 2>/dev/null || true
           
           cd firmware
           
-          # 重命名文件
-          echo "=== 重命名固件文件 ==="
           for f in *; do
             if [ -f "$f" ]; then
-              if [[ "$f" == "config.buildinfo" ]]; then
-                mv "$f" "${{ env.date1 }}_${{ env.OPENWRT_NAME }}_${{ env.DEVICE_NAME }}_$f" 2>/dev/null || true
-              elif [[ "$f" == *"squashfs-combined"* ]] || [[ "$f" == *".bin" ]] || [[ "$f" == *".img.gz" ]]; then
-                mv "$f" "${{ env.date1 }}_${{ env.OPENWRT_NAME }}_$f" 2>/dev/null || true
-              fi
+              case "$f" in
+                config.buildinfo)
+                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}_$f" 2>/dev/null || true
+                  ;;
+                *.bin|*.img.gz)
+                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_$f" 2>/dev/null || true
+                  ;;
+              esac
             fi
           done
           
-          echo "=== 固件目录内容 ==="
           ls -la
           
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "✅ 固件整理完成"
 
-      - name: 上传固件到 Artifact
+      - name: 上传 Artifact
         if: steps.organize.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: firmware_${{ env.OPENWRT_NAME }}_${{ env.DEVICE_NAME }}_${{ env.date1 }}
+          name: ${{ matrix.target }}_${{ env.DEVICE_NAME }}_${{ env.date1 }}
           path: ${{ env.FIRMWARE }}
 
-      - name: 生成发布标签和感谢语
+      - name: 生成 Release 描述
         id: release
         if: steps.organize.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
-          # 获取最近一次配置相关的提交信息
-          CONFIG_CHANGE=$(git log -1 --pretty=format:"%s (%cd)" --date=short -- .config diy1.sh diy2.sh 2>/dev/null || echo "初始配置")
-          
-          # 获取缓存状态
-          CACHE_STATUS="${{ steps.cache.outputs.cache-hit == 'true' && '✅ 命中（编译加速）' || '⚠️ 未命中（完整编译）' }}"
-          
-          # 获取固件文件列表
-          FIRMWARE_FILES=$(ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|vmdk|vdi|vhdx|qcow2)$" | head -10 | sed 's/^/- /' || echo "- 固件文件")
+          CACHE_STATUS="${{ steps.cache.outputs.cache-hit == 'true' && '✅ 命中' || '⚠️ 未命中' }}"
           
           cat > release.txt <<EOF
-          由衷感谢所有为 OpenWrt 无私奉献的大佬们
+          ## ${{ matrix.name }} 固件
           
-          ## 📥 固件信息
-          - **默认 IP**：192.168.5.1
-          - **默认密码**：无
-          - **默认主题**：Argon
-          - **默认语言**：简体中文
-          - **IPv6 支持**：✅ 已启用
-          - **编译日期**：${{ env.date3 }}
-          - **缓存状态**：$CACHE_STATUS
+          ### 📥 基本信息
+          | 项目 | 值 |
+          |------|-----|
+          | 默认 IP | 192.168.5.1 |
+          | 默认密码 | ${{ matrix.default_password }} |
+          | 默认主题 | Argon |
+          | 默认语言 | ${{ matrix.target == 'lede' && '简体中文（自带）' || '简体中文' }} |
+          | IPv6 | ✅ 已启用 |
+          | 内核版本 | ${{ matrix.target == 'lede' && '6.12' || '跟随官方最新' }} |
+          | 编译日期 | ${{ env.date3 }} |
+          | 缓存状态 | $CACHE_STATUS |
           
-          ## 🔧 本次配置变更
-          $CONFIG_CHANGE
+          ### 📦 集成插件
+          PassWall、Lucky、关机按钮、访问限制、内存释放、
+          DDNS（Cloudflare）、磁盘管理、Samba4、TTYD、
+          ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠${{ matrix.target == 'openwrt' && '、Autocore、Autosamba' || '' }}
           
-          ## 📦 集成插件清单
-          | 类别 | 插件 |
-          |------|------|
-          | 代理 | PassWall（完整版） |
-          | 网络 | DDNS（Cloudflare）、ZeroTier、UDPXY |
-          | 存储 | 磁盘管理、Samba4、硬盘休眠、USB自动共享 |
-          | 系统 | 关机按钮、内存释放、访问限制、文件传输 |
-          | 服务 | Lucky、KMS服务器、TTYD终端 |
-          | 主题 | Argon（含配置界面）、Material |
-          | 监控 | Autocore（CPU温度/频率） |
-          
-          ## 🔗 源码信息
-          - **OpenWrt 分支**：${{ env.REPO_BRANCH }}
-          - **设备型号**：${{ env.DEVICE_NAME }}
-          - **内核版本**：跟随官方最新
-          
-          ## 📁 固件文件
-          $FIRMWARE_FILES
-          
-          ---
-          *由 GitHub Actions 自动构建 | 编译耗时约 1.5-2.5 小时（缓存命中时约 30-60 分钟）*
+          ### 📁 固件文件
           EOF
           
-          echo "✅ Release 描述生成完成"
+          ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|vmdk|vdi|vhdx|qcow2)$" | sed 's/^/- /' >> release.txt
+          
           echo "status=success" >> $GITHUB_OUTPUT
 
-      - name: 创建正式 Release 并上传固件
+      - name: 创建 Release
         if: steps.release.outcome == 'success'
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.date2 }}
-          name: ${{ env.date3 }}
+          tag_name: ${{ matrix.release_prefix }}-${{ env.date2 }}
+          name: ${{ matrix.name }} ${{ env.date3 }}
           body_path: release.txt
           files: ${{ env.FIRMWARE }}/*
           draft: false
           prerelease: false
 
-      - name: 编译后深度清理
+      - name: 清理
         if: always()
         run: |
-          echo "=== 最终磁盘空间 ==="
-          df -h
-          rm -rf openwrt/build_dir openwrt/staging_dir openwrt/tmp 2>/dev/null || true
-          echo "=== 清理后磁盘空间 ==="
+          rm -rf ${{ matrix.target }}/build_dir ${{ matrix.target }}/staging_dir ${{ matrix.target }}/tmp 2>/dev/null || true
           df -h
