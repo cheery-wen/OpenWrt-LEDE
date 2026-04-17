@@ -69,13 +69,43 @@ jobs:
       - name: 检出仓库代码
         uses: actions/checkout@v5
 
+      # ============================================
+      # 2. 调试：查看文件结构
+      # ============================================
+      - name: 查看文件结构（调试）
+        run: |
+          echo "========================================="
+          echo "📁 仓库文件结构"
+          echo "========================================="
+          echo "当前目录: $(pwd)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo ""
+          echo "=== 根目录文件 ==="
+          ls -la
+          echo ""
+          echo "=== openwrt 目录 ==="
+          ls -la openwrt/ 2>/dev/null || echo "❌ openwrt 目录不存在"
+          echo ""
+          echo "=== lede 目录 ==="
+          ls -la lede/ 2>/dev/null || echo "❌ lede 目录不存在"
+          echo ""
+          echo "=== 搜索 diy1.sh ==="
+          find . -name "diy1.sh" 2>/dev/null | head -10
+          echo ""
+          echo "=== 搜索 diy2.sh ==="
+          find . -name "diy2.sh" 2>/dev/null | head -10
+          echo ""
+          echo "=== 搜索 .config ==="
+          find . -name ".config" 2>/dev/null | head -10
+          echo "========================================="
+
       - name: 设置日期变量
         run: |
           sudo timedatectl set-timezone "$TZ"
           echo "date1=$(date +'%Y.%m.%d-%H.%M')" >> $GITHUB_ENV
           echo "date2=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
           echo "date3=$(date '+%Y年%m月%d日')" >> $GITHUB_ENV
-          echo "✅ 日期: ${{ env.date3 }}"
+          echo "✅ 日期: $(date '+%Y年%m月%d日')"
 
       - name: 安装编译依赖
         run: |
@@ -89,7 +119,7 @@ jobs:
           df -h
 
       # ============================================
-      # 2. 克隆源码
+      # 3. 克隆源码
       # ============================================
       - name: 克隆 ${{ matrix.name }} 源码
         run: |
@@ -98,10 +128,34 @@ jobs:
           echo "✅ ${{ matrix.name }} 源码克隆完成"
 
       # ============================================
-      # 3. 执行 diy1.sh（首次自定义）
+      # 4. 执行 diy1.sh（首次自定义）
       # ============================================
       - name: 执行 diy1.sh
         run: |
+          # 调试：显示当前状态
+          echo "========================================="
+          echo "🔧 执行 diy1.sh 前的调试信息"
+          echo "========================================="
+          echo "当前目录: $(pwd)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo ""
+          echo "=== 检查 ${{ matrix.config_dir }}/diy1.sh ==="
+          if [ -f "${{ matrix.config_dir }}/diy1.sh" ]; then
+            echo "✅ 文件存在: ${{ matrix.config_dir }}/diy1.sh"
+            ls -la "${{ matrix.config_dir }}/diy1.sh"
+          else
+            echo "❌ 文件不存在: ${{ matrix.config_dir }}/diy1.sh"
+          fi
+          echo ""
+          echo "=== 检查 \$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh ==="
+          if [ -f "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh" ]; then
+            echo "✅ 文件存在: $GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh"
+            ls -la "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh"
+          else
+            echo "❌ 文件不存在: $GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh"
+          fi
+          echo "========================================="
+          
           # 确保在仓库根目录
           cd $GITHUB_WORKSPACE
           
@@ -146,7 +200,7 @@ jobs:
           fi
 
       # ============================================
-      # 4. 更新 feeds
+      # 5. 更新 feeds
       # ============================================
       - name: 更新 feeds
         run: |
@@ -156,13 +210,16 @@ jobs:
           echo "✅ feeds 更新完成"
 
       # ============================================
-      # 5. 执行 diy2.sh（再次自定义）
+      # 6. 执行 diy2.sh（再次自定义）
       # ============================================
       - name: 执行 diy2.sh
         run: |
           cd ${{ matrix.target }}
+          echo "========================================="
+          echo "🔧 执行 diy2.sh"
+          echo "========================================="
           if [ -f "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy2.sh" ]; then
-            echo "🚀 开始执行 diy2.sh..."
+            echo "✅ 找到 diy2.sh"
             chmod +x "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy2.sh"
             "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy2.sh"
             echo "✅ diy2.sh 执行完成"
@@ -171,10 +228,13 @@ jobs:
           fi
 
       # ============================================
-      # 6. 加载配置
+      # 7. 加载配置
       # ============================================
       - name: 加载配置
         run: |
+          echo "========================================="
+          echo "🔧 加载配置文件"
+          echo "========================================="
           if [ -f "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/.config" ]; then
             cp "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/.config" ${{ matrix.target }}/.config
             echo "✅ 配置文件已复制"
@@ -192,7 +252,7 @@ jobs:
           grep -E "^CONFIG_TARGET_(x86|mediatek|rockchip|ipq)" .config 2>/dev/null | head -5 || echo "未找到目标设备配置"
 
       # ============================================
-      # 7. 缓存加速
+      # 8. 缓存加速
       # ============================================
       - name: 缓存加速
         id: cache
@@ -216,7 +276,7 @@ jobs:
           fi
 
       # ============================================
-      # 8. 下载源码包
+      # 9. 下载源码包
       # ============================================
       - name: 下载源码包
         run: |
@@ -228,7 +288,7 @@ jobs:
           echo "✅ 下载完成"
 
       # ============================================
-      # 9. 编译前清理
+      # 10. 编译前清理
       # ============================================
       - name: 编译前清理
         run: |
@@ -238,7 +298,7 @@ jobs:
           df -h .
 
       # ============================================
-      # 10. 编译固件
+      # 11. 编译固件
       # ============================================
       - name: 编译固件
         id: compile
@@ -256,19 +316,17 @@ jobs:
             exit 1
           fi
           
-          # 后期处理（容错）
           make package/index V=s 2>/dev/null || true
           make checksum V=s 2>/dev/null || true
           
           echo "status=success" >> $GITHUB_OUTPUT
           
-          # 提取设备名称
           grep '^CONFIG_TARGET_.*_DEVICE_.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV || echo "DEVICE_NAME=generic" >> $GITHUB_ENV
           echo "✅ 设备名称: $DEVICE_NAME"
 
       # ============================================
-      # 11. 检查磁盘
+      # 12. 检查磁盘
       # ============================================
       - name: 检查磁盘使用情况
         if: (!cancelled())
@@ -277,7 +335,7 @@ jobs:
           du -sh ${{ matrix.target }} 2>/dev/null || true
 
       # ============================================
-      # 12. 整理固件
+      # 13. 整理固件
       # ============================================
       - name: 整理固件
         id: organize
@@ -285,10 +343,8 @@ jobs:
         run: |
           mkdir -p firmware
           
-          # 复制配置文件
           cp -v ./${{ matrix.target }}/.config firmware/${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}.config
           
-          # 复制固件文件
           find ${{ matrix.target }}/bin/targets -type f \
             \( -name "*.bin" -o -name "*.img.gz" -o -name "*.vmdk" -o -name "*.vdi" \
             -o -name "*.vhdx" -o -name "*.qcow2" -o -name "config.buildinfo" \) \
@@ -296,7 +352,6 @@ jobs:
           
           cd firmware
           
-          # 重命名文件
           for f in *; do
             if [ -f "$f" ]; then
               case "$f" in
@@ -310,7 +365,6 @@ jobs:
             fi
           done
           
-          echo "=== 固件目录内容 ==="
           ls -la
           
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
@@ -318,7 +372,7 @@ jobs:
           echo "✅ 固件整理完成"
 
       # ============================================
-      # 13. 上传 Artifact
+      # 14. 上传 Artifact
       # ============================================
       - name: 上传固件到 Artifact
         if: steps.organize.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
@@ -328,7 +382,7 @@ jobs:
           path: ${{ env.FIRMWARE }}
 
       # ============================================
-      # 14. 生成 Release 描述
+      # 15. 生成 Release 描述
       # ============================================
       - name: 生成 Release 描述
         id: release
@@ -365,7 +419,7 @@ jobs:
           echo "✅ Release 描述生成完成"
 
       # ============================================
-      # 15. 创建 Release
+      # 16. 创建 Release
       # ============================================
       - name: 创建 Release
         if: steps.release.outcome == 'success'
@@ -381,7 +435,7 @@ jobs:
           prerelease: false
 
       # ============================================
-      # 16. 清理
+      # 17. 清理
       # ============================================
       - name: 编译后清理
         if: always()
