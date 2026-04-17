@@ -137,8 +137,21 @@ jobs:
       - name: 更新 feeds
         run: |
           cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          echo "=== 更新 feeds ==="
           ./scripts/feeds update -a
+          
+          echo "=== 安装 feeds ==="
           ./scripts/feeds install -a
+          
+          # 针对 LEDE 强制安装可能缺失的依赖（修复 rpcd-mod-luci）
+          if [ "${{ matrix.target }}" == "lede" ]; then
+            echo "=== LEDE: 强制安装关键依赖 ==="
+            ./scripts/feeds install rpcd 2>/dev/null || true
+            ./scripts/feeds install luci-base 2>/dev/null || true
+            ./scripts/feeds install libubus 2>/dev/null || true
+            ./scripts/feeds install ucode 2>/dev/null || true
+          fi
+          
           echo "✅ feeds 更新完成"
 
       - name: 执行 diy2.sh
