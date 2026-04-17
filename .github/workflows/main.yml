@@ -106,9 +106,12 @@ jobs:
             echo "🔍 分析 diy1.sh 中的插件："
             echo "-----------------------------------------"
             
-            # 提取 git clone 命令中的仓库地址
-            grep -E "^git clone" "../${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | \
-              sed -n 's/.*github.com\/\([^ ]*\).*/  📌 \1/p' | sort -u
+            # 提取 git clone 命令中的仓库地址（修正版）
+            grep -E "git clone" "../${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | \
+              grep -oE "github\.com/[^ ]+" | \
+              sed 's/\.git$//' | \
+              sed 's|^|  📌 |' | \
+              sort -u
             
             echo "-----------------------------------------"
             echo ""
