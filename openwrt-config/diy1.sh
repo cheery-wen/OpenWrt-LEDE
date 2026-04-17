@@ -79,13 +79,17 @@ echo "✅ PassWall 已添加"
 
 # ---------- 9. 修复 geoview ----------
 echo "📦 修复 geoview..."
-cd package/openwrt-passwall-packages
-rm -rf geoview 2>/dev/null || true
-git clone --depth 1 https://github.com/snowie2000/geoview.git
-cd geoview
-git checkout v0.2.4 2>/dev/null || echo "使用最新版本"
-cd ../../..
-echo "✅ geoview 已修复"
+if [ -d "package/openwrt-passwall-packages" ]; then
+  cd package/openwrt-passwall-packages
+  rm -rf geoview 2>/dev/null || true
+  git clone --depth 1 https://github.com/snowie2000/geoview.git
+  cd geoview
+  git checkout v0.2.4 2>/dev/null || echo "使用最新版本"
+  cd ../../..
+  echo "✅ geoview 已修复"
+else
+  echo "⚠️ openwrt-passwall-packages 目录不存在，跳过 geoview 修复"
+fi
 
 echo "========================================="
 echo "✅ OpenWrt diy1.sh 执行完成"
