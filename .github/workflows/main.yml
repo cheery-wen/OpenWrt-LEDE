@@ -185,6 +185,9 @@ jobs:
           cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
           echo "=== 目标设备配置 ==="
           grep -E "^CONFIG_TARGET_(x86|mediatek|rockchip|ipq)" .config 2>/dev/null | head -5 || echo "未找到目标设备配置"
+          echo ""
+          echo "=== IPv6 配置 ==="
+          grep -E "^CONFIG_PACKAGE.*ipv6|^CONFIG_PACKAGE.*6in4|^CONFIG_PACKAGE.*6rd|^CONFIG_PACKAGE.*6to4" .config 2>/dev/null | head -5 || echo "IPv6 未完全启用"
 
       - name: 缓存加速
         id: cache
@@ -321,7 +324,7 @@ jobs:
           
           ### 📦 集成插件
           PassWall、Lucky、关机按钮、访问限制、内存释放、
-          DDNS（Cloudflare）、磁盘管理、Samba4、TTYD、
+          DDNS（Cloudflare）、磁盘管理、Samba、TTYD、
           ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠
           
           ### 📁 固件文件
