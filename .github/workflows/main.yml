@@ -87,7 +87,6 @@ jobs:
 
       - name: 克隆 ${{ matrix.name }} 源码
         run: |
-          # 确保目录不存在
           rm -rf ${{ matrix.target }}
           git clone --depth 1 ${{ matrix.repo_url }} -b ${{ matrix.repo_branch }} ${{ matrix.target }}
           echo "✅ ${{ matrix.name }} 源码克隆完成"
@@ -95,7 +94,11 @@ jobs:
       - name: 执行 diy1.sh
         run: |
           cd ${{ matrix.target }}
-          [ -f "../${{ matrix.config_dir }}/feeds.conf.default" ] && cp "../${{ matrix.config_dir }}/feeds.conf.default" ./
+          # 避免复制相同文件导致的错误
+          if [ -f "../${{ matrix.config_dir }}/feeds.conf.default" ] && [ ! -f "./feeds.conf.default" ]; then
+            cp "../${{ matrix.config_dir }}/feeds.conf.default" ./
+            echo "✅ feeds.conf.default 已复制"
+          fi
           if [ -f "../${{ matrix.config_dir }}/diy1.sh" ]; then
             chmod +x "../${{ matrix.config_dir }}/diy1.sh"
             "../${{ matrix.config_dir }}/diy1.sh"
@@ -213,75 +216,4 @@ jobs:
             if [ -f "$f" ]; then
               case "$f" in
                 config.buildinfo)
-                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}_$f" 2>/dev/null || true
-                  ;;
-                *.bin|*.img.gz)
-                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_$f" 2>/dev/null || true
-                  ;;
-              esac
-            fi
-          done
-          
-          ls -la
-          
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          echo "status=success" >> $GITHUB_OUTPUT
-
-      - name: 上传 Artifact
-        if: steps.organize.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ matrix.target }}_${{ env.DEVICE_NAME }}_${{ env.date1 }}
-          path: ${{ env.FIRMWARE }}
-
-      - name: 生成 Release 描述
-        id: release
-        if: steps.organize.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
-        run: |
-          CACHE_STATUS="${{ steps.cache.outputs.cache-hit == 'true' && '✅ 命中' || '⚠️ 未命中' }}"
-          
-          cat > release.txt <<EOF
-          ## ${{ matrix.name }} 固件
-          
-          ### 📥 基本信息
-          | 项目 | 值 |
-          |------|-----|
-          | 默认 IP | 192.168.5.1 |
-          | 默认密码 | ${{ matrix.default_password }} |
-          | 默认主题 | Argon |
-          | 默认语言 | ${{ matrix.target == 'lede' && '简体中文（自带）' || '简体中文' }} |
-          | IPv6 | ✅ 已启用 |
-          | 内核版本 | ${{ matrix.target == 'lede' && '6.12' || '跟随官方最新' }} |
-          | 编译日期 | ${{ env.date3 }} |
-          | 缓存状态 | $CACHE_STATUS |
-          
-          ### 📦 集成插件
-          PassWall、Lucky、关机按钮、访问限制、内存释放、
-          DDNS（Cloudflare）、磁盘管理、Samba4、TTYD、
-          ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠${{ matrix.target == 'openwrt' && '、Autocore、Autosamba' || '' }}
-          
-          ### 📁 固件文件
-          EOF
-          
-          ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|vmdk|vdi|vhdx|qcow2)$" | sed 's/^/- /' >> release.txt
-          
-          echo "status=success" >> $GITHUB_OUTPUT
-
-      - name: 创建 Release
-        if: steps.release.outcome == 'success'
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ matrix.release_prefix }}-${{ env.date2 }}
-          name: ${{ matrix.name }} ${{ env.date3 }}
-          body_path: release.txt
-          files: ${{ env.FIRMWARE }}/*
-          draft: false
-          prerelease: false
-
-      - name: 清理
-        if: always()
-        run: |
-          rm -rf ${{ matrix.target }}/build_dir ${{ matrix.target }}/staging_dir ${{ matrix.target }}/tmp 2>/dev/null || true
-          df -h
+                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE
