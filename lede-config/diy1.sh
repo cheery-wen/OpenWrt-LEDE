@@ -54,22 +54,27 @@ echo "✅ LEDE 自带插件清理完成"
 # ---------- 7. 添加第三方插件 ----------
 echo "📦 添加第三方插件..."
 
+# Argon 主题与配置
 git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
 git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 echo "✅ Argon 主题及配置已添加"
 
+# Lienol 仓库插件
 git clone --depth 1 --filter=blob:none --sparse https://github.com/Lienol/openwrt-package.git package/lienol-packages
 cd package/lienol-packages
 git sparse-checkout set luci-app-control-webrestriction luci-app-ramfree
 cd ../..
 echo "✅ 访问限制、内存释放已添加"
 
+# 关机按钮
 git clone --depth 1 https://github.com/esirplayground/luci-app-poweroff.git package/luci-app-poweroff
 echo "✅ 关机按钮已添加"
 
+# Lucky 大吉
 git clone --depth 1 https://github.com/gdy666/luci-app-lucky.git package/luci-app-lucky
 echo "✅ Lucky 已添加"
 
+# PassWall 依赖及主程序
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git package/openwrt-passwall-packages
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall.git package/luci-app-passwall
 echo "✅ PassWall 已添加"
