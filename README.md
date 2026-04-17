@@ -35,28 +35,45 @@
 
 
 
+
+## 使用
+
+1. Fork 本仓库
+2. 按需修改 `openwrt/` 或 `lede/` 目录下的配置文件
+3. 推送代码自动触发编译
+4. 在 Releases 页面下载固件
+
+## 默认信息
+
+| 项目 | 值 |
+|------|-----|
+| IP | 192.168.5.1 |
+| 密码 | 无 |
+| 主题 | Argon |
+| 语言 | 简体中文 |
+
 ## 致谢
 
 ### 源码
-- [OpenWrt 官方](https://github.com/openwrt/openwrt)
-- [LEDE by Lean](https://github.com/coolsnowwolf/lede)
+- [OpenWrt](https://github.com/openwrt/openwrt)
+- [LEDE](https://github.com/coolsnowwolf/lede)
 
 ### 主题
-- [luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon) by jerrykuku
-- [luci-app-argon-config](https://github.com/jerrykuku/luci-app-argon-config) by jerrykuku
+- [luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon)
+- [luci-app-argon-config](https://github.com/jerrykuku/luci-app-argon-config)
 
 ### 代理
-- [openwrt-passwall](https://github.com/xiaorouji/openwrt-passwall) by xiaorouji
-- [openwrt-passwall-packages](https://github.com/xiaorouji/openwrt-passwall-packages) by xiaorouji
+- [openwrt-passwall](https://github.com/Openwrt-Passwall/openwrt-passwall)
+- [openwrt-passwall-packages](https://github.com/Openwrt-Passwall/openwrt-passwall-packages)
 
 ### 系统工具
-- [luci-app-poweroff](https://github.com/esirplayground/luci-app-poweroff) by esirplayground
-- [luci-app-lucky](https://github.com/gdy666/luci-app-lucky) by gdy666
-- [luci-app-control-webrestriction](https://github.com/Lienol/openwrt-package) by Lienol
-- [luci-app-ramfree](https://github.com/Lienol/openwrt-package) by Lienol
-- [autocore](https://github.com/immortalwrt/autocore) by immortalwrt
-- [autosamba](https://github.com/sbwml/autosamba) by sbwml
+- [luci-app-poweroff](https://github.com/esirplayground/luci-app-poweroff)
+- [luci-app-lucky](https://github.com/gdy666/luci-app-lucky)
+- [luci-app-control-webrestriction](https://github.com/Lienol/openwrt-package)
+- [luci-app-ramfree](https://github.com/Lienol/openwrt-package)
+- [autocore](https://github.com/immortalwrt/autocore)
+- [autosamba](https://github.com/sbwml/autosamba)
 
 ### 其他
 - 所有 OpenWrt/LEDE 官方插件维护者
-- GitHub Actions 提供免费编译环境
+- GitHub Actions
