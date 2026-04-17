@@ -34,7 +34,13 @@ if [ -f "package/lean/default-settings/files/zzz-default-settings" ]; then
     echo "✅ 版本信息已更新（compiled by cheery）"
 fi
 
-# ---------- 6. 删除 LEDE 自带的插件 ----------
+# ---------- 6. 更新 Golang 版本 ----------
+echo "📦 更新 Golang..."
+rm -rf feeds/packages/lang/golang
+git clone --depth 1 https://github.com/sbwml/packages_lang_golang -b 22.x feeds/packages/lang/golang
+echo "✅ Golang 已更新"
+
+# ---------- 7. 删除 LEDE 自带的插件 ----------
 echo "🗑️ 删除 LEDE 自带的插件..."
 rm -rf feeds/luci/themes/luci-theme-argon 2>/dev/null || true
 rm -rf package/lean/luci-theme-argon 2>/dev/null || true
@@ -51,7 +57,7 @@ rm -rf feeds/packages/net/lucky 2>/dev/null || true
 rm -rf package/feeds/packages/lucky 2>/dev/null || true
 echo "✅ LEDE 自带插件清理完成"
 
-# ---------- 7. 添加第三方插件 ----------
+# ---------- 8. 添加第三方插件 ----------
 echo "📦 添加第三方插件..."
 
 # Argon 主题与配置
