@@ -25,6 +25,3 @@ PassWall、Lucky、关机按钮、访问限制、内存释放、DDNS、磁盘管
 - [openwrt-passwall](https://github.com/xiaorouji/openwrt-passwall)
 - [lucky](https://github.com/gdy666/luci-app-lucky)
 
-## 许可证
-
-MIT
