@@ -40,31 +40,56 @@ echo "✅ 自带插件清理完成"
 # ---------- 6. 添加第三方插件 ----------
 echo "📦 添加第三方插件..."
 
+# Argon 主题与配置
 git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
 git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 echo "✅ Argon 主题及配置已添加"
 
+# Lienol 仓库插件（访问限制、内存释放）
 git clone --depth 1 --filter=blob:none --sparse https://github.com/Lienol/openwrt-package.git package/lienol-packages
 cd package/lienol-packages
 git sparse-checkout set luci-app-control-webrestriction luci-app-ramfree
 cd ../..
 echo "✅ 访问限制、内存释放已添加"
 
+# 关机按钮
 git clone --depth 1 https://github.com/esirplayground/luci-app-poweroff.git package/luci-app-poweroff
 echo "✅ 关机按钮已添加"
 
+# Lucky 大吉
 git clone --depth 1 https://github.com/gdy666/luci-app-lucky.git package/luci-app-lucky
 echo "✅ Lucky 已添加"
 
+# PassWall 依赖及主程序
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git package/openwrt-passwall-packages
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall.git package/luci-app-passwall
 echo "✅ PassWall 已添加"
 
-git clone --depth 1 https://github.com/immortalwrt/autocore.git package/autocore
-echo "✅ Autocore 已添加"
+# Autocore（带重试机制）
+echo "📦 添加 Autocore..."
+for i in 1 2 3; do
+    git clone --depth 1 https://github.com/immortalwrt/autocore.git package/autocore 2>/dev/null && break
+    echo "⚠️ Autocore 克隆失败，第 $i 次重试..."
+    sleep 5
+done
+if [ -d "package/autocore" ]; then
+    echo "✅ Autocore 已添加"
+else
+    echo "⚠️ Autocore 添加失败，跳过（不影响编译）"
+fi
 
-git clone --depth 1 https://github.com/sbwml/autosamba.git package/autosamba
-echo "✅ Autosamba 已添加"
+# Autosamba（带重试机制）
+echo "📦 添加 Autosamba..."
+for i in 1 2 3; do
+    git clone --depth 1 https://github.com/sbwml/autosamba.git package/autosamba 2>/dev/null && break
+    echo "⚠️ Autosamba 克隆失败，第 $i 次重试..."
+    sleep 5
+done
+if [ -d "package/autosamba" ]; then
+    echo "✅ Autosamba 已添加"
+else
+    echo "⚠️ Autosamba 添加失败，跳过（不影响编译）"
+fi
 
 echo "========================================="
 echo "✅ OpenWrt diy1.sh 执行完成"
