@@ -14,14 +14,49 @@
 
 ## 集成插件
 
-PassWall、Lucky、关机按钮、访问限制、内存释放、DDNS、磁盘管理、Samba4、TTYD、ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠
+| 插件 | 功能 |
+|------|------|
+| PassWall | 代理客户端 |
+| Lucky | 端口转发/DDNS/SSL证书 |
+| 关机按钮 | 一键关机 |
+| 访问限制 | 家长控制 |
+| 内存释放 | 一键释放内存 |
+| DDNS | 动态DNS（Cloudflare） |
+| 磁盘管理 | 分区/格式化/挂载 |
+| Samba4 | 网络共享 |
+| TTYD | 网页终端 |
+| ZeroTier | 虚拟局域网 |
+| UDPXY | 组播转单播 |
+| KMS服务器 | 激活服务 |
+| 文件传输 | 文件管理 |
+| 硬盘休眠 | 硬盘节能 |
+| Autocore | 系统信息显示 |
+| Autosamba | USB自动共享 |
+
 
 
 ## 致谢
 
-- [OpenWrt](https://github.com/openwrt/openwrt)
-- [LEDE](https://github.com/coolsnowwolf/lede)
-- [luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon)
-- [openwrt-passwall](https://github.com/xiaorouji/openwrt-passwall)
-- [lucky](https://github.com/gdy666/luci-app-lucky)
+### 源码
+- [OpenWrt 官方](https://github.com/openwrt/openwrt)
+- [LEDE by Lean](https://github.com/coolsnowwolf/lede)
 
+### 主题
+- [luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon) by jerrykuku
+- [luci-app-argon-config](https://github.com/jerrykuku/luci-app-argon-config) by jerrykuku
+
+### 代理
+- [openwrt-passwall](https://github.com/xiaorouji/openwrt-passwall) by xiaorouji
+- [openwrt-passwall-packages](https://github.com/xiaorouji/openwrt-passwall-packages) by xiaorouji
+
+### 系统工具
+- [luci-app-poweroff](https://github.com/esirplayground/luci-app-poweroff) by esirplayground
+- [luci-app-lucky](https://github.com/gdy666/luci-app-lucky) by gdy666
+- [luci-app-control-webrestriction](https://github.com/Lienol/openwrt-package) by Lienol
+- [luci-app-ramfree](https://github.com/Lienol/openwrt-package) by Lienol
+- [autocore](https://github.com/immortalwrt/autocore) by immortalwrt
+- [autosamba](https://github.com/sbwml/autosamba) by sbwml
+
+### 其他
+- 所有 OpenWrt/LEDE 官方插件维护者
+- GitHub Actions 提供免费编译环境
