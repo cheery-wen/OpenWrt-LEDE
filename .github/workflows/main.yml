@@ -191,4 +191,161 @@ jobs:
             ${{ matrix.build_dir }}/dl
             ${{ matrix.build_dir }}/staging_dir
             ${{ matrix.build_dir }}/build_dir
-          key: ${{ matrix.target }}-x86-64-${{ hashFiles(format('{0}/.config', matrix.config_dir), format('{0}/diy1.sh', matrix.config_dir), format('{0}/diy2.sh', matrix.config_dir)) 
+          key: ${{ matrix.target }}-x86-64-${{ hashFiles(format('{0}/.config', matrix.config_dir), format('{0}/diy1.sh', matrix.config_dir), format('{0}/diy2.sh', matrix.config_dir)) }}
+          restore-keys: |
+            ${{ matrix.target }}-x86-64-
+            ${{ matrix.target }}-
+
+      - name: 显示缓存状态
+        run: |
+          if [ "${{ steps.cache.outputs.cache-hit }}" == "true" ]; then
+            echo "✅ 缓存命中！编译将显著加速"
+          else
+            echo "⚠️ 缓存未命中，进行完整编译"
+          fi
+
+      - name: 下载源码包
+        run: |
+          cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          echo "=== 下载源码包 ==="
+          make download -j8 V=s || make download -j4 V=s || make download -j1 V=s || make download -j1 V=s
+          find dl -size -1024c -exec rm -f {} \; 2>/dev/null || true
+          make download -j1 V=s 2>/dev/null || true
+          echo "✅ 下载完成"
+
+      - name: 编译前清理
+        run: |
+          cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          rm -rf tmp bin/packages 2>/dev/null || true
+          echo "=== 当前磁盘空间 ==="
+          df -h .
+
+      - name: 编译固件
+        id: compile
+        run: |
+          cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          echo "=== 开始编译，使用 $(nproc) 线程 ==="
+          
+          make -j$(nproc) || make -j1 || make -j1 V=s
+          
+          BIN_COUNT=$(find bin/targets -name "*.bin" 2>/dev/null | wc -l)
+          if [ "$BIN_COUNT" -gt 0 ]; then
+            echo "✅ 固件编译成功（生成 $BIN_COUNT 个固件文件）"
+          else
+            echo "❌ 未找到固件文件"
+            exit 1
+          fi
+          
+          make package/index V=s 2>/dev/null || true
+          make checksum V=s 2>/dev/null || true
+          
+          echo "status=success" >> $GITHUB_OUTPUT
+          
+          grep '^CONFIG_TARGET_.*_DEVICE_.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+          [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV || echo "DEVICE_NAME=generic" >> $GITHUB_ENV
+          echo "✅ 设备名称: $(cat DEVICE_NAME 2>/dev/null || echo generic)"
+
+      - name: 检查磁盘使用情况
+        if: (!cancelled())
+        run: |
+          cd $GITHUB_WORKSPACE
+          df -h
+          du -sh ${{ matrix.build_dir }} 2>/dev/null || true
+
+      - name: 整理固件
+        id: organize
+        if: steps.compile.outcome == 'success'
+        run: |
+          cd $GITHUB_WORKSPACE
+          mkdir -p firmware
+          
+          cp -v ./${{ matrix.build_dir }}/.config firmware/${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}.config
+          
+          find ${{ matrix.build_dir }}/bin/targets -type f \
+            \( -name "*.bin" -o -name "*.img.gz" -o -name "*.vmdk" -o -name "*.vdi" \
+            -o -name "*.vhdx" -o -name "*.qcow2" -o -name "config.buildinfo" \) \
+            -exec cp -v {} firmware/ \; 2>/dev/null || true
+          
+          cd firmware
+          
+          for f in *; do
+            if [ -f "$f" ]; then
+              case "$f" in
+                config.buildinfo)
+                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}_$f" 2>/dev/null || true
+                  ;;
+                *.bin|*.img.gz)
+                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_$f" 2>/dev/null || true
+                  ;;
+              esac
+            fi
+          done
+          
+          ls -la
+          
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ 固件整理完成"
+
+      - name: 上传固件到 Artifact
+        if: steps.organize.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.target }}_${{ env.DEVICE_NAME }}_${{ env.date1 }}
+          path: ${{ env.FIRMWARE }}
+
+      - name: 生成 Release 描述
+        id: release
+        if: steps.organize.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
+        run: |
+          cd $GITHUB_WORKSPACE
+          CACHE_STATUS="${{ steps.cache.outputs.cache-hit == 'true' && '✅ 命中' || '⚠️ 未命中' }}"
+          
+          cat > release.txt <<EOF
+          ## ${{ matrix.name }} 固件
+          
+          ### 📥 基本信息
+          | 项目 | 值 |
+          |------|-----|
+          | 默认 IP | 192.168.5.1 |
+          | 默认密码 | ${{ matrix.default_password }} |
+          | 默认主题 | Argon |
+          | 默认语言 | ${{ matrix.target == 'lede' && '简体中文（自带）' || '简体中文' }} |
+          | IPv6 | ✅ 已启用 |
+          | 内核版本 | ${{ matrix.target == 'lede' && '6.12' || '跟随官方最新' }} |
+          | 编译日期 | ${{ env.date3 }} |
+          | 缓存状态 | $CACHE_STATUS |
+          
+          ### 📦 集成插件
+          PassWall、Lucky、关机按钮、访问限制、内存释放、
+          DDNS（Cloudflare）、磁盘管理、Samba、TTYD、
+          ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠
+          
+          ### 📁 固件文件
+          EOF
+          
+          ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|vmdk|vdi|vhdx|qcow2)$" | sed 's/^/- /' >> release.txt
+          
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ Release 描述生成完成"
+
+      - name: 创建 Release
+        if: steps.release.outcome == 'success'
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ matrix.release_prefix }}-${{ env.date2 }}
+          name: ${{ matrix.name }} ${{ env.date3 }}
+          body_path: release.txt
+          files: ${{ env.FIRMWARE }}/*
+          draft: false
+          prerelease: false
+
+      - name: 编译后清理
+        if: always()
+        run: |
+          cd $GITHUB_WORKSPACE
+          rm -rf ${{ matrix.build_dir }}/build_dir ${{ matrix.build_dir }}/staging_dir ${{ matrix.build_dir }}/tmp 2>/dev/null || true
+          echo "=== 最终磁盘空间 ==="
+          df -h
