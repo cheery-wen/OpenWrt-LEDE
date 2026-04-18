@@ -48,7 +48,7 @@ jobs:
             config_dir: lede-config
             build_dir: lede
             release_prefix: lede
-            default_password: "无"
+            default_password: "无（已清除原密码）"
 
     steps:
       - name: 释放磁盘空间
@@ -86,6 +86,14 @@ jobs:
             autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync
           echo "✅ 依赖安装完成"
           df -h
+
+      - name: 升级 CMake
+        run: |
+          echo "=== 升级 CMake ==="
+          sudo apt-get remove -y cmake 2>/dev/null || true
+          sudo pip3 install --upgrade cmake
+          cmake --version
+          echo "✅ CMake 升级完成"
 
       - name: 克隆 ${{ matrix.name }} 源码
         run: |
@@ -140,6 +148,7 @@ jobs:
           
           if [ "${{ matrix.target }}" == "lede" ]; then
             echo "=== LEDE: 强制安装关键依赖 ==="
+            ./scripts/feeds install -p lean -a 2>/dev/null || true
             ./scripts/feeds install rpcd 2>/dev/null || true
             ./scripts/feeds install luci-base 2>/dev/null || true
             ./scripts/feeds install libubus 2>/dev/null || true
@@ -262,8 +271,9 @@ jobs:
           cp -v ./${{ matrix.build_dir }}/.config firmware/${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}.config
           
           find ${{ matrix.build_dir }}/bin/targets -type f \
-            \( -name "*.bin" -o -name "*.img.gz" -o -name "*.vmdk" -o -name "*.vdi" \
-            -o -name "*.vhdx" -o -name "*.qcow2" -o -name "config.buildinfo" \) \
+            \( -name "*.bin" -o -name "*.img.gz" -o -name "*.img" \
+            -o -name "*.vmdk" -o -name "*.vdi" -o -name "*.vhdx" \
+            -o -name "*.qcow2" -o -name "config.buildinfo" \) \
             -exec cp -v {} firmware/ \; 2>/dev/null || true
           
           cd firmware
@@ -274,7 +284,7 @@ jobs:
                 config.buildinfo)
                   mv "$f" "${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}_$f" 2>/dev/null || true
                   ;;
-                *.bin|*.img.gz)
+                *.bin|*.img.gz|*.img)
                   mv "$f" "${{ env.date1 }}_${{ matrix.target }}_$f" 2>/dev/null || true
                   ;;
               esac
@@ -324,7 +334,7 @@ jobs:
           ### 📁 固件文件
           EOF
           
-          ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|vmdk|vdi|vhdx|qcow2)$" | sed 's/^/- /' >> release.txt
+          ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|img|vmdk|vdi|vhdx|qcow2)$" | sed 's/^/- /' >> release.txt
           
           echo "status=success" >> $GITHUB_OUTPUT
           echo "✅ Release 描述生成完成"
