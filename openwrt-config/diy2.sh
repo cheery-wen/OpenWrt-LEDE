@@ -11,14 +11,14 @@ if [ -f "feeds/luci/modules/luci-base/root/etc/config/luci" ]; then
     echo "✅ 默认语言已设置为简体中文"
 fi
 
-# 方法2：创建默认配置（更可靠）
+# 方法2：创建默认配置（更可靠，避免 here-document 语法问题）
 mkdir -p files/etc/config
-cat > files/etc/config/luci <<'EOF'
-config core main
-    option lang zh_cn
-    option mediaurlbase /luci-static/argon
-    option resourcebase /luci-static/resources
-EOF
+{
+    echo "config core main"
+    echo "    option lang zh_cn"
+    echo "    option mediaurlbase /luci-static/argon"
+    echo "    option resourcebase /luci-static/resources"
+} > files/etc/config/luci
 echo "✅ 强制设置默认语言和主题"
 
 if [ -f "feeds/luci/collections/luci/Makefile" ]; then
