@@ -34,16 +34,6 @@ if [ -f "package/lean/default-settings/files/zzz-default-settings" ]; then
     echo "✅ 版本信息已更新（compiled by cheery）"
 fi
 
-# ---------- 6. 清理 Go 模块缓存 ----------
-echo "🗑️ 清理 Go 模块缓存..."
-rm -rf dl/go-mod-cache 2>/dev/null || true
-echo "✅ Go 缓存已清理"
-
-# ---------- 7. 更新 Golang 版本 ----------
-echo "📦 更新 Golang..."
-rm -rf feeds/packages/lang/golang
-git clone --depth 1 https://github.com/sbwml/packages_lang_golang -b 22.x feeds/packages/lang/golang
-echo "✅ Golang 已更新"
 
 # ---------- 8. 删除 LEDE 自带的插件 ----------
 echo "🗑️ 删除 LEDE 自带的插件..."
