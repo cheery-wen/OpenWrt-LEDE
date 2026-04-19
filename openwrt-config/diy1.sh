@@ -62,6 +62,21 @@ git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall-package
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall.git package/luci-app-passwall
 echo "✅ PassWall 已添加"
 
+# ---------- 6. 创建首次启动 UCI 默认设置脚本（仅设置语言和 IP 二次保障，不设置主题）----------
+mkdir -p files/etc/uci-defaults
+cat > files/etc/uci-defaults/99-custom-settings << 'EOF'
+#!/bin/sh
+# 设置默认语言为简体中文
+uci set luci.main.lang='zh_cn'
+# 二次保障默认 IP 地址
+uci set network.lan.ipaddr='192.168.5.1'
+uci commit luci
+uci commit network
+exit 0
+EOF
+chmod +x files/etc/uci-defaults/99-custom-settings
+
+
 echo "========================================="
 echo "✅ OpenWrt diy1.sh 执行完成"
 echo "========================================="
