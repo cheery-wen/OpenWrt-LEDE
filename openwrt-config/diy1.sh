@@ -23,9 +23,12 @@ echo "✅ 版本信息已更新（compiled by cheery）"
 rm -rf feeds/packages/net/onionshare-cli 2>/dev/null || true
 echo "✅ 问题包已删除"
 
+# ---------- 5. 删除 geoview（解决 Go 依赖编译失败）----------
+rm -rf package/openwrt-passwall-packages/geoview 2>/dev/null || true
+rm -rf feeds/packages/net/geoview 2>/dev/null || true
+echo "✅ 已删除 geoview"
 
-
-# ---------- 7. 删除可能冲突的自带插件 ----------
+# ---------- 6. 删除可能冲突的自带插件 ----------
 echo "🗑️ 删除可能冲突的自带插件..."
 rm -rf feeds/luci/themes/luci-theme-argon 2>/dev/null || true
 rm -rf package/feeds/luci/luci-theme-argon 2>/dev/null || true
@@ -39,7 +42,7 @@ rm -rf feeds/packages/net/lucky 2>/dev/null || true
 rm -rf package/feeds/packages/lucky 2>/dev/null || true
 echo "✅ 自带插件清理完成"
 
-# ---------- 8. 添加第三方插件 ----------
+# ---------- 7. 添加第三方插件 ----------
 echo "📦 添加第三方插件..."
 
 git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
@@ -62,7 +65,7 @@ git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall-package
 git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall.git package/luci-app-passwall
 echo "✅ PassWall 已添加"
 
-# ---------- 6. 创建首次启动 UCI 默认设置脚本（仅设置语言和 IP 二次保障，不设置主题）----------
+# ---------- 8. 创建首次启动 UCI 默认设置脚本 ----------
 mkdir -p files/etc/uci-defaults
 cat > files/etc/uci-defaults/99-custom-settings << 'EOF'
 #!/bin/sh
@@ -75,7 +78,7 @@ uci commit network
 exit 0
 EOF
 chmod +x files/etc/uci-defaults/99-custom-settings
-
+echo "✅ UCI 默认设置脚本已创建"
 
 echo "========================================="
 echo "✅ OpenWrt diy1.sh 执行完成"
