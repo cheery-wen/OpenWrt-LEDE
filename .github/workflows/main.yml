@@ -294,7 +294,7 @@ jobs:
           du -sh ${{ matrix.build_dir }} 2>/dev/null || true
 
       # ------------------------------------------------------------
-      # 7. 整理固件（仅保留 squashfs 镜像，简化文件名）
+      # 7. 整理固件（仅 squashfs，简化文件名）
       # ------------------------------------------------------------
       - name: 整理固件
         id: organize
@@ -303,17 +303,14 @@ jobs:
           cd $GITHUB_WORKSPACE
           mkdir -p firmware
 
-          # 备份配置文件（简化命名）
           cp -v ./${{ matrix.build_dir }}/.config firmware/${{ matrix.target }}.config
 
-          # 仅复制 squashfs 格式的 combined 镜像（传统 BIOS 和 EFI）
           find ${{ matrix.build_dir }}/bin/targets -type f \
             \( -name "*-squashfs-combined.img.gz" -o -name "*-squashfs-combined-efi.img.gz" \) \
             -exec cp -v {} firmware/ \; 2>/dev/null || true
 
           cd firmware
 
-          # 重命名为极简格式
           for f in *.img.gz; do
             if [ -f "$f" ]; then
               if echo "$f" | grep -q "efi"; then
@@ -392,55 +389,46 @@ jobs:
           prerelease: false
 
       # ------------------------------------------------------------
+      # 10. 善后与日志上传（修复路径问题）
       # ------------------------------------------------------------
-# 10. 善后与日志上传
-# ------------------------------------------------------------
-- name: 准备编译日志
-  if: failure()
-  run: |
-    cd ${{ github.workspace }}
-    
-    echo "=== 检查日志文件 ==="
-    ls -la ${{ matrix.build_dir }}/ 2>/dev/null || echo "编译目录不存在"
-    
-    mkdir -p upload-logs
-    
-    if [ -d "${{ matrix.build_dir }}/logs" ]; then
-      echo "✅ 找到 logs 目录"
-      cp -r ${{ matrix.build_dir }}/logs upload-logs/
-    else
-      echo "⚠️ 未找到 logs 目录"
-      echo "logs 目录不存在" > upload-logs/MISSING_LOGS.txt
-    fi
-    
-    if [ -f "${{ matrix.build_dir }}/.config" ]; then
-      echo "✅ 找到 .config 文件"
-      cp ${{ matrix.build_dir }}/.config upload-logs/
-    else
-      echo "⚠️ 未找到 .config 文件"
-      echo ".config 文件不存在" > upload-logs/MISSING_CONFIG.txt
-    fi
-    
-    # 同时收集其他可能有用的信息
-    if [ -f "${{ matrix.build_dir }}/.config.old" ]; then
-      cp ${{ matrix.build_dir }}/.config.old upload-logs/
-    fi
-    
-    echo "=== 准备上传的文件 ==="
-    ls -la upload-logs/
+      - name: 准备编译日志
+        if: failure()
+        run: |
+          cd ${{ github.workspace }}
+          mkdir -p upload-logs
 
-- name: 上传编译日志
-  if: failure()
-  uses: actions/upload-artifact@v6
-  with:
-    name: ${{ matrix.target }}-logs-${{ env.date1 }}
-    path: upload-logs/
-    if-no-files-found: warn
+          if [ -d "${{ matrix.build_dir }}/logs" ]; then
+            cp -r ${{ matrix.build_dir }}/logs upload-logs/
+            echo "✅ 已复制 logs 目录"
+          else
+            echo "logs 目录不存在" > upload-logs/MISSING_LOGS.txt
+          fi
 
-- name: 编译后清理
-  if: always()
-  run: |
-    cd $GITHUB_WORKSPACE
-    rm -rf ${{ matrix.build_dir }}/build_dir ${{ matrix.build_dir }}/staging_dir ${{ matrix.build_dir }}/tmp 2>/dev/null || true
-    echo "=== 最终磁盘空间 ==="
-    df -h
+          if [ -f "${{ matrix.build_dir }}/.config" ]; then
+            cp ${{ matrix.build_dir }}/.config upload-logs/
+            echo "✅ 已复制 .config 文件"
+          else
+            echo ".config 文件不存在" > upload-logs/MISSING_CONFIG.txt
+          fi
+
+          if [ -f "${{ matrix.build_dir }}/.config.old" ]; then
+            cp ${{ matrix.build_dir }}/.config.old upload-logs/
+          fi
+
+          ls -la upload-logs/
+
+      - name: 上传编译日志
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.target }}-logs-${{ env.date1 }}
+          path: upload-logs/
+          if-no-files-found: warn
+
+      - name: 编译后清理
+        if: always()
+        run: |
+          cd $GITHUB_WORKSPACE
+          rm -rf ${{ matrix.build_dir }}/build_dir ${{ matrix.build_dir }}/staging_dir ${{ matrix.build_dir }}/tmp 2>/dev/null || true
+          echo "=== 最终磁盘空间 ==="
+          df -h
