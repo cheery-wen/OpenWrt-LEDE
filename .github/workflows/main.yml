@@ -38,9 +38,9 @@ jobs:
           if [ "${{ github.event_name }}" == "push" ]; then
             TARGET="both"
           fi
-          
+
           echo "目标选择: $TARGET"
-          
+
           if [ "$TARGET" == "openwrt" ]; then
             MATRIX='{"include":[{"target":"openwrt","name":"OpenWrt 官方版","repo_url":"https://github.com/openwrt/openwrt","repo_branch":"main","config_dir":"openwrt-config","build_dir":"openwrt","release_prefix":"openwrt","default_password":"无"}]}'
           elif [ "$TARGET" == "lede" ]; then
@@ -48,7 +48,7 @@ jobs:
           else
             MATRIX='{"include":[{"target":"openwrt","name":"OpenWrt 官方版","repo_url":"https://github.com/openwrt/openwrt","repo_branch":"main","config_dir":"openwrt-config","build_dir":"openwrt","release_prefix":"openwrt","default_password":"无"},{"target":"lede","name":"LEDE","repo_url":"https://github.com/coolsnowwolf/lede","repo_branch":"master","config_dir":"lede-config","build_dir":"lede","release_prefix":"lede","default_password":"无（已清除原密码）"}]}'
           fi
-          
+
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           echo "矩阵配置: $MATRIX"
 
@@ -61,12 +61,15 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-    
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
+      # ------------------------------------------------------------
+      # 1. 环境准备
+      # ------------------------------------------------------------
       - name: 释放磁盘空间
         run: |
           echo "=== 释放前磁盘空间 ==="
@@ -111,6 +114,9 @@ jobs:
           cmake --version
           echo "✅ CMake 升级完成"
 
+      # ------------------------------------------------------------
+      # 2. 克隆源码 & 应用自定义 (diy1)
+      # ------------------------------------------------------------
       - name: 克隆 ${{ matrix.name }} 源码
         run: |
           cd $GITHUB_WORKSPACE
@@ -121,11 +127,11 @@ jobs:
       - name: 执行 diy1.sh
         run: |
           cd $GITHUB_WORKSPACE
-          
+
           echo "========================================="
           echo "📦 ${{ matrix.name }} 第三方插件清单"
           echo "========================================="
-          
+
           if [ -f "${{ matrix.config_dir }}/diy1.sh" ]; then
             echo "✅ 找到文件: ${{ matrix.config_dir }}/diy1.sh"
             echo ""
@@ -137,12 +143,12 @@ jobs:
           else
             echo "❌ 文件不存在: ${{ matrix.config_dir }}/diy1.sh"
           fi
-          
+
           if [ -f "${{ matrix.config_dir }}/feeds.conf.default" ] && [ ! -f "${{ matrix.build_dir }}/feeds.conf.default" ]; then
             cp "${{ matrix.config_dir }}/feeds.conf.default" "${{ matrix.build_dir }}/"
             echo "✅ feeds.conf.default 已复制"
           fi
-          
+
           if [ -f "${{ matrix.config_dir }}/diy1.sh" ]; then
             echo ""
             echo "🚀 开始执行 diy1.sh..."
@@ -154,6 +160,9 @@ jobs:
             echo "✅ diy1.sh 执行完成"
           fi
 
+      # ------------------------------------------------------------
+      # 3. 更新 feeds & 应用二次自定义 (diy2)
+      # ------------------------------------------------------------
       - name: 更新 feeds
         run: |
           cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
@@ -161,7 +170,7 @@ jobs:
           ./scripts/feeds update -a
           echo "=== 安装 feeds ==="
           ./scripts/feeds install -a
-          
+
           if [ "${{ matrix.target }}" == "lede" ]; then
             echo "=== LEDE: 强制安装关键依赖 ==="
             ./scripts/feeds install -p lean -a 2>/dev/null || true
@@ -170,7 +179,7 @@ jobs:
             ./scripts/feeds install libubus 2>/dev/null || true
             ./scripts/feeds install ucode 2>/dev/null || true
           fi
-          
+
           echo "✅ feeds 更新完成"
 
       - name: 执行 diy2.sh
@@ -186,6 +195,9 @@ jobs:
             echo "⚠️ 跳过 diy2.sh（文件不存在）"
           fi
 
+      # ------------------------------------------------------------
+      # 4. 加载配置并验证
+      # ------------------------------------------------------------
       - name: 加载配置
         run: |
           cd $GITHUB_WORKSPACE
@@ -208,25 +220,25 @@ jobs:
           echo "=== IPv6 配置 ==="
           grep -E "^CONFIG_PACKAGE.*ipv6|^CONFIG_PACKAGE.*6in4|^CONFIG_PACKAGE.*6rd|^CONFIG_PACKAGE.*6to4" .config 2>/dev/null | head -5 || echo "IPv6 未完全启用"
 
+      # ------------------------------------------------------------
+      # 5. 缓存与下载
+      # ------------------------------------------------------------
       - name: 缓存加速
         id: cache
         uses: actions/cache@v5
         with:
           path: |
             ${{ matrix.build_dir }}/dl
-            ${{ matrix.build_dir }}/staging_dir
-            ${{ matrix.build_dir }}/build_dir
-          key: ${{ matrix.target }}-x86-64-${{ hashFiles(format('{0}/.config', matrix.config_dir), format('{0}/diy1.sh', matrix.config_dir), format('{0}/diy2.sh', matrix.config_dir)) }}
+          key: ${{ matrix.target }}-dl-${{ hashFiles(format('{0}/.config', matrix.config_dir), format('{0}/diy1.sh', matrix.config_dir), format('{0}/diy2.sh', matrix.config_dir)) }}
           restore-keys: |
-            ${{ matrix.target }}-x86-64-
-            ${{ matrix.target }}-
+            ${{ matrix.target }}-dl-
 
       - name: 显示缓存状态
         run: |
           if [ "${{ steps.cache.outputs.cache-hit }}" == "true" ]; then
-            echo "✅ 缓存命中！编译将显著加速"
+            echo "✅ 缓存命中！下载包将直接从缓存恢复"
           else
-            echo "⚠️ 缓存未命中，进行完整编译"
+            echo "⚠️ 缓存未命中，将进行完整下载"
           fi
 
       - name: 下载源码包
@@ -238,6 +250,9 @@ jobs:
           make download -j1 V=s 2>/dev/null || true
           echo "✅ 下载完成"
 
+      # ------------------------------------------------------------
+      # 6. 编译固件
+      # ------------------------------------------------------------
       - name: 编译前清理
         run: |
           cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
@@ -250,9 +265,9 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
           echo "=== 开始编译，使用 $(nproc) 线程 ==="
-          
+
           make -j$(nproc) || make -j1 || make -j1 V=s
-          
+
           BIN_COUNT=$(find bin/targets -name "*.bin" 2>/dev/null | wc -l)
           if [ "$BIN_COUNT" -gt 0 ]; then
             echo "✅ 固件编译成功（生成 $BIN_COUNT 个固件文件）"
@@ -260,12 +275,12 @@ jobs:
             echo "❌ 未找到固件文件"
             exit 1
           fi
-          
+
           make package/index V=s 2>/dev/null || true
           make checksum V=s 2>/dev/null || true
-          
+
           echo "status=success" >> $GITHUB_OUTPUT
-          
+
           grep '^CONFIG_TARGET_.*_DEVICE_.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV || echo "DEVICE_NAME=generic" >> $GITHUB_ENV
           echo "✅ 设备名称: $(cat DEVICE_NAME 2>/dev/null || echo generic)"
@@ -277,23 +292,26 @@ jobs:
           df -h
           du -sh ${{ matrix.build_dir }} 2>/dev/null || true
 
+      # ------------------------------------------------------------
+      # 7. 整理固件并上传
+      # ------------------------------------------------------------
       - name: 整理固件
         id: organize
         if: steps.compile.outcome == 'success'
         run: |
           cd $GITHUB_WORKSPACE
           mkdir -p firmware
-          
+
           cp -v ./${{ matrix.build_dir }}/.config firmware/${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}.config
-          
+
           find ${{ matrix.build_dir }}/bin/targets -type f \
             \( -name "*.bin" -o -name "*.img.gz" -o -name "*.img" \
             -o -name "*.vmdk" -o -name "*.vdi" -o -name "*.vhdx" \
             -o -name "*.qcow2" -o -name "config.buildinfo" \) \
             -exec cp -v {} firmware/ \; 2>/dev/null || true
-          
+
           cd firmware
-          
+
           for f in *; do
             if [ -f "$f" ]; then
               case "$f" in
@@ -306,9 +324,9 @@ jobs:
               esac
             fi
           done
-          
+
           ls -la
-          
+
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
           echo "✅ 固件整理完成"
@@ -320,16 +338,19 @@ jobs:
           name: ${{ matrix.target }}_${{ env.DEVICE_NAME }}_${{ env.date1 }}
           path: ${{ env.FIRMWARE }}
 
+      # ------------------------------------------------------------
+      # 8. 发布 Release
+      # ------------------------------------------------------------
       - name: 生成 Release 描述
         id: release
         if: steps.organize.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
           cd $GITHUB_WORKSPACE
           CACHE_STATUS="${{ steps.cache.outputs.cache-hit == 'true' && '✅ 命中' || '⚠️ 未命中' }}"
-          
+
           cat > release.txt <<EOF
           ## ${{ matrix.name }} 固件
-          
+
           ### 📥 基本信息
           | 项目 | 值 |
           |------|-----|
@@ -341,17 +362,17 @@ jobs:
           | 内核版本 | ${{ matrix.target == 'lede' && '6.12' || '跟随官方最新' }} |
           | 编译日期 | ${{ env.date3 }} |
           | 缓存状态 | $CACHE_STATUS |
-          
+
           ### 📦 集成插件
           PassWall、Lucky、关机按钮、访问限制、内存释放、
           DDNS（Cloudflare）、磁盘管理、Samba、TTYD、
           ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠
-          
+
           ### 📁 固件文件
           EOF
-          
+
           ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|img|vmdk|vdi|vhdx|qcow2)$" | sed 's/^/- /' >> release.txt
-          
+
           echo "status=success" >> $GITHUB_OUTPUT
           echo "✅ Release 描述生成完成"
 
@@ -361,12 +382,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ matrix.release_prefix }}-${{ env.date2 }}
+          tag_name: ${{ matrix.release_prefix }}-${{ env.date1 }}
           name: ${{ matrix.name }} ${{ env.date3 }}
           body_path: release.txt
           files: ${{ env.FIRMWARE }}/*
           draft: false
           prerelease: false
+
+      # ------------------------------------------------------------
+      # 9. 善后与日志上传
+      # ------------------------------------------------------------
+      - name: 上传编译日志（失败时）
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.target }}-logs-${{ env.date1 }}
+          path: |
+            ${{ matrix.build_dir }}/logs
+            ${{ matrix.build_dir }}/.config
 
       - name: 编译后清理
         if: always()
