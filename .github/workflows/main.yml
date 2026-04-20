@@ -93,6 +93,7 @@ jobs:
           echo "date1=$(date +'%Y.%m.%d-%H.%M')" >> $GITHUB_ENV
           echo "date2=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
           echo "date3=$(date '+%Y年%m月%d日')" >> $GITHUB_ENV
+          echo "short_date=$(date +'%Y%m%d')" >> $GITHUB_ENV
           echo "✅ 日期: $(date '+%Y年%m月%d日')"
 
       - name: 安装编译依赖
@@ -115,7 +116,7 @@ jobs:
           echo "✅ CMake 升级完成"
 
       # ------------------------------------------------------------
-      # 2. 克隆源码 & 应用自定义 (diy1)
+      # 2. 克隆源码 & 执行 diy1.sh
       # ------------------------------------------------------------
       - name: 克隆 ${{ matrix.name }} 源码
         run: |
@@ -161,7 +162,7 @@ jobs:
           fi
 
       # ------------------------------------------------------------
-      # 3. 更新 feeds & 应用二次自定义 (diy2)
+      # 3. 更新 feeds & 执行 diy2.sh
       # ------------------------------------------------------------
       - name: 更新 feeds
         run: |
@@ -293,7 +294,7 @@ jobs:
           du -sh ${{ matrix.build_dir }} 2>/dev/null || true
 
       # ------------------------------------------------------------
-      # 7. 整理固件并上传
+      # 7. 整理固件（仅保留 squashfs 镜像，简化文件名）
       # ------------------------------------------------------------
       - name: 整理固件
         id: organize
@@ -302,26 +303,24 @@ jobs:
           cd $GITHUB_WORKSPACE
           mkdir -p firmware
 
-          cp -v ./${{ matrix.build_dir }}/.config firmware/${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}.config
+          # 备份配置文件（简化命名）
+          cp -v ./${{ matrix.build_dir }}/.config firmware/${{ matrix.target }}.config
 
+          # 仅复制 squashfs 格式的 combined 镜像（传统 BIOS 和 EFI）
           find ${{ matrix.build_dir }}/bin/targets -type f \
-            \( -name "*.bin" -o -name "*.img.gz" -o -name "*.img" \
-            -o -name "*.vmdk" -o -name "*.vdi" -o -name "*.vhdx" \
-            -o -name "*.qcow2" -o -name "config.buildinfo" \) \
+            \( -name "*-squashfs-combined.img.gz" -o -name "*-squashfs-combined-efi.img.gz" \) \
             -exec cp -v {} firmware/ \; 2>/dev/null || true
 
           cd firmware
 
-          for f in *; do
+          # 重命名为极简格式
+          for f in *.img.gz; do
             if [ -f "$f" ]; then
-              case "$f" in
-                config.buildinfo)
-                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_${{ env.DEVICE_NAME }}_$f" 2>/dev/null || true
-                  ;;
-                *.bin|*.img.gz|*.img)
-                  mv "$f" "${{ env.date1 }}_${{ matrix.target }}_$f" 2>/dev/null || true
-                  ;;
-              esac
+              if echo "$f" | grep -q "efi"; then
+                mv "$f" "${{ matrix.target }}-efi.img.gz"
+              else
+                mv "$f" "${{ matrix.target }}-bios.img.gz"
+              fi
             fi
           done
 
@@ -331,6 +330,9 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
           echo "✅ 固件整理完成"
 
+      # ------------------------------------------------------------
+      # 8. 上传 Artifact
+      # ------------------------------------------------------------
       - name: 上传固件到 Artifact
         if: steps.organize.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
         uses: actions/upload-artifact@v6
@@ -339,7 +341,7 @@ jobs:
           path: ${{ env.FIRMWARE }}
 
       # ------------------------------------------------------------
-      # 8. 发布 Release
+      # 9. 生成 Release 并发布
       # ------------------------------------------------------------
       - name: 生成 Release 描述
         id: release
@@ -368,10 +370,10 @@ jobs:
           DDNS（Cloudflare）、磁盘管理、Samba、TTYD、
           ZeroTier、UDPXY、KMS服务器、文件传输、硬盘休眠
 
-          ### 📁 固件文件
+          ### 📁 固件文件（squashfs 格式）
           EOF
 
-          ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.(bin|img\.gz|img|vmdk|vdi|vhdx|qcow2)$" | sed 's/^/- /' >> release.txt
+          ls -1 ${{ env.FIRMWARE }} 2>/dev/null | grep -E "\.img\.gz$" | sed 's/^/- /' >> release.txt
 
           echo "status=success" >> $GITHUB_OUTPUT
           echo "✅ Release 描述生成完成"
@@ -390,7 +392,7 @@ jobs:
           prerelease: false
 
       # ------------------------------------------------------------
-      # 9. 善后与日志上传
+      # 10. 善后与日志上传
       # ------------------------------------------------------------
       - name: 上传编译日志（失败时）
         if: failure()
