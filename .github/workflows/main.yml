@@ -1,19 +1,12 @@
-name: 编译 OpenWrt / LEDE
+name: 编译 OpenWrt 官方版
 
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'openwrt-config/**'
+      - '.github/workflows/build-openwrt.yml'
   workflow_dispatch:
-    inputs:
-      target:
-        description: '选择编译目标'
-        required: true
-        default: 'both'
-        type: choice
-        options:
-          - 'openwrt'
-          - 'lede'
-          - 'both'
 
 env:
   TZ: Asia/Shanghai
@@ -22,49 +15,11 @@ env:
   UPLOAD_FIRMWARE: true
 
 jobs:
-  # ============================================
-  # 前置 Job：根据输入生成编译矩阵
-  # ============================================
-  prepare:
-    name: 准备编译矩阵
-    runs-on: ubuntu-24.04
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: 生成矩阵
-        id: set-matrix
-        run: |
-          TARGET="${{ github.event.inputs.target || 'both' }}"
-          if [ "${{ github.event_name }}" == "push" ]; then
-            TARGET="both"
-          fi
-
-          echo "目标选择: $TARGET"
-
-          if [ "$TARGET" == "openwrt" ]; then
-            MATRIX='{"include":[{"target":"openwrt","name":"OpenWrt 官方版","repo_url":"https://github.com/openwrt/openwrt","repo_branch":"main","config_dir":"openwrt-config","build_dir":"openwrt","release_prefix":"openwrt","default_password":"无"}]}'
-          elif [ "$TARGET" == "lede" ]; then
-            MATRIX='{"include":[{"target":"lede","name":"LEDE","repo_url":"https://github.com/coolsnowwolf/lede","repo_branch":"master","config_dir":"lede-config","build_dir":"lede","release_prefix":"lede","default_password":"无（已清除原密码）"}]}'
-          else
-            MATRIX='{"include":[{"target":"openwrt","name":"OpenWrt 官方版","repo_url":"https://github.com/openwrt/openwrt","repo_branch":"main","config_dir":"openwrt-config","build_dir":"openwrt","release_prefix":"openwrt","default_password":"无"},{"target":"lede","name":"LEDE","repo_url":"https://github.com/coolsnowwolf/lede","repo_branch":"master","config_dir":"lede-config","build_dir":"lede","release_prefix":"lede","default_password":"无（已清除原密码）"}]}'
-          fi
-
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-          echo "矩阵配置: $MATRIX"
-
-  # ============================================
-  # 编译 Job：根据矩阵动态执行
-  # ============================================
   build:
-    name: 编译 ${{ matrix.name }}
-    needs: prepare
+    name: 编译 OpenWrt 官方版
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
       # ------------------------------------------------------------
@@ -120,45 +75,45 @@ jobs:
       # ------------------------------------------------------------
       # 2. 克隆源码 & 执行 diy1.sh
       # ------------------------------------------------------------
-      - name: 克隆 ${{ matrix.name }} 源码
+      - name: 克隆 OpenWrt 源码
         run: |
           cd $GITHUB_WORKSPACE
-          rm -rf ${{ matrix.build_dir }}
-          git clone --depth 1 ${{ matrix.repo_url }} -b ${{ matrix.repo_branch }} ${{ matrix.build_dir }}
-          echo "✅ ${{ matrix.name }} 源码克隆完成"
+          rm -rf openwrt
+          git clone --depth 1 https://github.com/openwrt/openwrt -b main openwrt
+          echo "✅ OpenWrt 源码克隆完成"
 
       - name: 执行 diy1.sh
         run: |
           cd $GITHUB_WORKSPACE
 
           echo "========================================="
-          echo "📦 ${{ matrix.name }} 第三方插件清单"
+          echo "📦 OpenWrt 第三方插件清单"
           echo "========================================="
 
-          if [ -f "${{ matrix.config_dir }}/diy1.sh" ]; then
-            echo "✅ 找到文件: ${{ matrix.config_dir }}/diy1.sh"
+          if [ -f "openwrt-config/diy1.sh" ]; then
+            echo "✅ 找到文件: openwrt-config/diy1.sh"
             echo ""
             echo "🔍 diy1.sh 中包含的 GitHub 仓库："
             echo "-----------------------------------------"
-            grep -E "github\.com|git clone" "${{ matrix.config_dir }}/diy1.sh" 2>/dev/null | \
+            grep -E "github\.com|git clone" "openwrt-config/diy1.sh" 2>/dev/null | \
               grep -v "^#" | head -20 || echo "  (未检测到 git clone 命令)"
             echo "-----------------------------------------"
           else
-            echo "❌ 文件不存在: ${{ matrix.config_dir }}/diy1.sh"
+            echo "❌ 文件不存在: openwrt-config/diy1.sh"
           fi
 
-          if [ -f "${{ matrix.config_dir }}/feeds.conf.default" ]; then
-            cp -f "${{ matrix.config_dir }}/feeds.conf.default" "${{ matrix.build_dir }}/"
+          if [ -f "openwrt-config/feeds.conf.default" ]; then
+            cp -f "openwrt-config/feeds.conf.default" "openwrt/"
             echo "✅ feeds.conf.default 已强制覆盖"
           fi
 
-          if [ -f "${{ matrix.config_dir }}/diy1.sh" ]; then
+          if [ -f "openwrt-config/diy1.sh" ]; then
             echo ""
             echo "🚀 开始执行 diy1.sh..."
             echo "========================================="
-            chmod +x "${{ matrix.config_dir }}/diy1.sh"
-            cd ${{ matrix.build_dir }}
-            "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy1.sh"
+            chmod +x "openwrt-config/diy1.sh"
+            cd openwrt
+            "$GITHUB_WORKSPACE/openwrt-config/diy1.sh"
             echo "========================================="
             echo "✅ diy1.sh 执行完成"
           fi
@@ -168,33 +123,23 @@ jobs:
       # ------------------------------------------------------------
       - name: 更新 feeds
         run: |
-          cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          cd $GITHUB_WORKSPACE/openwrt
           echo "=== 当前 feeds 配置 ==="
           cat feeds.conf.default 2>/dev/null || echo "未找到 feeds.conf.default"
           echo "=== 更新 feeds ==="
           ./scripts/feeds update -a
           echo "=== 安装 feeds ==="
           ./scripts/feeds install -a
-
-          if [ "${{ matrix.target }}" == "lede" ]; then
-            echo "=== LEDE: 强制安装关键依赖 ==="
-            ./scripts/feeds install -p lean -a 2>/dev/null || true
-            ./scripts/feeds install rpcd 2>/dev/null || true
-            ./scripts/feeds install luci-base 2>/dev/null || true
-            ./scripts/feeds install libubus 2>/dev/null || true
-            ./scripts/feeds install ucode 2>/dev/null || true
-          fi
-
           echo "✅ feeds 更新完成"
 
       - name: 执行 diy2.sh
         run: |
           cd $GITHUB_WORKSPACE
-          if [ -f "${{ matrix.config_dir }}/diy2.sh" ]; then
+          if [ -f "openwrt-config/diy2.sh" ]; then
             echo "🚀 开始执行 diy2.sh..."
-            chmod +x "${{ matrix.config_dir }}/diy2.sh"
-            cd ${{ matrix.build_dir }}
-            "$GITHUB_WORKSPACE/${{ matrix.config_dir }}/diy2.sh"
+            chmod +x "openwrt-config/diy2.sh"
+            cd openwrt
+            "$GITHUB_WORKSPACE/openwrt-config/diy2.sh"
             echo "✅ diy2.sh 执行完成"
           else
             echo "⚠️ 跳过 diy2.sh（文件不存在）"
@@ -206,19 +151,19 @@ jobs:
       - name: 加载配置
         run: |
           cd $GITHUB_WORKSPACE
-          if [ -f "${{ matrix.config_dir }}/.config" ]; then
-            cp "${{ matrix.config_dir }}/.config" ${{ matrix.build_dir }}/.config
+          if [ -f "openwrt-config/.config" ]; then
+            cp "openwrt-config/.config" openwrt/.config
             echo "✅ 配置文件已复制"
           else
             echo "⚠️ 配置文件不存在，使用默认配置"
           fi
-          cd ${{ matrix.build_dir }}
+          cd openwrt
           make defconfig
           echo "✅ defconfig 执行完成"
 
       - name: 验证目标设备
         run: |
-          cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          cd $GITHUB_WORKSPACE/openwrt
           echo "=== 目标设备配置 ==="
           grep -E "^CONFIG_TARGET_(x86|mediatek|rockchip|ipq)" .config 2>/dev/null | head -5 || echo "未找到目标设备配置"
           echo ""
@@ -233,10 +178,10 @@ jobs:
         uses: actions/cache@v5
         with:
           path: |
-            ${{ matrix.build_dir }}/dl
-          key: ${{ matrix.target }}-dl-${{ hashFiles(format('{0}/.config', matrix.config_dir), format('{0}/diy1.sh', matrix.config_dir), format('{0}/diy2.sh', matrix.config_dir)) }}
+            openwrt/dl
+          key: openwrt-dl-${{ hashFiles('openwrt-config/.config', 'openwrt-config/diy1.sh', 'openwrt-config/diy2.sh') }}
           restore-keys: |
-            ${{ matrix.target }}-dl-
+            openwrt-dl-
 
       - name: 显示缓存状态
         run: |
@@ -248,7 +193,7 @@ jobs:
 
       - name: 下载源码包
         run: |
-          cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          cd $GITHUB_WORKSPACE/openwrt
           echo "=== 下载源码包 ==="
           make download -j8 V=s || make download -j4 V=s || make download -j1 V=s || make download -j1 V=s
           find dl -size -1024c -exec rm -f {} \; 2>/dev/null || true
@@ -260,7 +205,7 @@ jobs:
       # ------------------------------------------------------------
       - name: 编译前清理
         run: |
-          cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          cd $GITHUB_WORKSPACE/openwrt
           rm -rf tmp bin/packages 2>/dev/null || true
           echo "=== 当前磁盘空间 ==="
           df -h .
@@ -268,7 +213,7 @@ jobs:
       - name: 编译固件
         id: compile
         run: |
-          cd $GITHUB_WORKSPACE/${{ matrix.build_dir }}
+          cd $GITHUB_WORKSPACE/openwrt
           echo "=== 开始编译，使用 $(nproc) 线程 ==="
 
           make -j$(nproc) || make -j1 || make -j1 V=s
@@ -295,7 +240,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           df -h
-          du -sh ${{ matrix.build_dir }} 2>/dev/null || true
+          du -sh openwrt 2>/dev/null || true
 
       # ------------------------------------------------------------
       # 7. 整理固件（仅 squashfs，简化文件名）
@@ -307,9 +252,9 @@ jobs:
           cd $GITHUB_WORKSPACE
           mkdir -p firmware
 
-          cp -v ./${{ matrix.build_dir }}/.config firmware/${{ matrix.target }}.config
+          cp -v ./openwrt/.config firmware/openwrt.config
 
-          find ${{ matrix.build_dir }}/bin/targets -type f \
+          find openwrt/bin/targets -type f \
             \( -name "*-squashfs-combined.img.gz" -o -name "*-squashfs-combined-efi.img.gz" \) \
             -exec cp -v {} firmware/ \; 2>/dev/null || true
 
@@ -318,9 +263,9 @@ jobs:
           for f in *.img.gz; do
             if [ -f "$f" ]; then
               if echo "$f" | grep -q "efi"; then
-                mv "$f" "${{ matrix.target }}-efi.img.gz"
+                mv "$f" "openwrt-efi.img.gz"
               else
-                mv "$f" "${{ matrix.target }}-bios.img.gz"
+                mv "$f" "openwrt-bios.img.gz"
               fi
             fi
           done
@@ -338,7 +283,7 @@ jobs:
         if: steps.organize.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.target }}_${{ env.DEVICE_NAME }}_${{ env.date1 }}
+          name: openwrt_${{ env.DEVICE_NAME }}_${{ env.date1 }}
           path: ${{ env.FIRMWARE }}
 
       # ------------------------------------------------------------
@@ -352,17 +297,17 @@ jobs:
           CACHE_STATUS="${{ steps.cache.outputs.cache-hit == 'true' && '✅ 命中' || '⚠️ 未命中' }}"
 
           cat > release.txt <<EOF
-          ## ${{ matrix.name }} 固件
+          ## OpenWrt 官方版 固件
 
           ### 📥 基本信息
           | 项目 | 值 |
           |------|-----|
           | 默认 IP | 192.168.5.1 |
-          | 默认密码 | ${{ matrix.default_password }} |
+          | 默认密码 | 无 |
           | 默认主题 | Argon |
-          | 默认语言 | ${{ matrix.target == 'lede' && '简体中文（自带）' || '简体中文' }} |
+          | 默认语言 | 简体中文 |
           | IPv6 | ✅ 已启用 |
-          | 内核版本 | ${{ matrix.target == 'lede' && '6.12' || '跟随官方最新' }} |
+          | 内核版本 | 跟随官方最新 |
           | 编译日期 | ${{ env.date3 }} |
           | 缓存状态 | $CACHE_STATUS |
 
@@ -385,8 +330,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ matrix.release_prefix }}-${{ env.date1 }}
-          name: ${{ matrix.name }} ${{ env.date3 }}
+          tag_name: openwrt-${{ env.date1 }}
+          name: OpenWrt 官方版 ${{ env.date3 }}
           body_path: release.txt
           files: ${{ env.FIRMWARE }}/*
           draft: false
@@ -401,22 +346,22 @@ jobs:
           cd ${{ github.workspace }}
           mkdir -p upload-logs
 
-          if [ -d "${{ matrix.build_dir }}/logs" ]; then
-            cp -r ${{ matrix.build_dir }}/logs upload-logs/
+          if [ -d "openwrt/logs" ]; then
+            cp -r openwrt/logs upload-logs/
             echo "✅ 已复制 logs 目录"
           else
             echo "logs 目录不存在" > upload-logs/MISSING_LOGS.txt
           fi
 
-          if [ -f "${{ matrix.build_dir }}/.config" ]; then
-            cp ${{ matrix.build_dir }}/.config upload-logs/
+          if [ -f "openwrt/.config" ]; then
+            cp openwrt/.config upload-logs/
             echo "✅ 已复制 .config 文件"
           else
             echo ".config 文件不存在" > upload-logs/MISSING_CONFIG.txt
           fi
 
-          if [ -f "${{ matrix.build_dir }}/.config.old" ]; then
-            cp ${{ matrix.build_dir }}/.config.old upload-logs/
+          if [ -f "openwrt/.config.old" ]; then
+            cp openwrt/.config.old upload-logs/
           fi
 
           ls -la upload-logs/
@@ -425,7 +370,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.target }}-logs-${{ env.date1 }}
+          name: openwrt-logs-${{ env.date1 }}
           path: upload-logs/
           if-no-files-found: warn
 
@@ -433,6 +378,6 @@ jobs:
         if: always()
         run: |
           cd $GITHUB_WORKSPACE
-          rm -rf ${{ matrix.build_dir }}/build_dir ${{ matrix.build_dir }}/staging_dir ${{ matrix.build_dir }}/tmp 2>/dev/null || true
+          rm -rf openwrt/build_dir openwrt/staging_dir openwrt/tmp 2>/dev/null || true
           echo "=== 最终磁盘空间 ==="
           df -h
