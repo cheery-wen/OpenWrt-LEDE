@@ -14,7 +14,7 @@ echo "========================================="
 # ---------- 0. 强制使用 LuCI 23.05 分支 ----------
 echo "🔧 修改 feeds 源，将 LuCI 锁定到 23.05 分支"
 if [ -f "feeds.conf.default" ]; then
-    sed -i 's|^src-git luci .*|src-git luci https://github.com/coolsnowwolf/luci.git;23.05|g' feeds.conf.default
+    sed -i 's|^src-git luci .*|src-git luci https://github.com/coolsnowwolf/luci.git;openwrt-23.05|g' feeds.conf.default
 else
     cat > feeds.conf.default <<EOF
 src-git packages https://github.com/coolsnowwolf/packages
