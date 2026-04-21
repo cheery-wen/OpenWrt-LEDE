@@ -4,7 +4,31 @@ set -e
 echo "========================================="
 echo "LEDE DIY 脚本 1"
 echo "========================================="
+#!/bin/bash
+set -e
 
+echo "========================================="
+echo "LEDE DIY 脚本 1"
+echo "========================================="
+
+# ---------- 0. 强制使用 LuCI 23.05 分支 ----------
+echo "🔧 修改 feeds 源，将 LuCI 锁定到 23.05 分支"
+if [ -f "feeds.conf.default" ]; then
+    sed -i 's|^src-git luci .*|src-git luci https://github.com/coolsnowwolf/luci.git;23.05|g' feeds.conf.default
+else
+    cat > feeds.conf.default <<EOF
+src-git packages https://github.com/coolsnowwolf/packages
+src-git luci https://github.com/coolsnowwolf/luci.git;23.05
+src-git routing https://github.com/coolsnowwolf/routing
+src-git telephony https://github.com/openwrt/telephony.git
+src-git targets https://github.com/coolsnowwolf/targets
+EOF
+fi
+echo "✅ 当前 feeds 配置："
+grep luci feeds.conf.default
+
+# ---------- 1. 修改默认 IP ----------
+# ... 其余原有代码 ...
 # ---------- 1. 修改默认 IP ----------
 sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generate
 echo "✅ IP 已修改为 192.168.5.1"
