@@ -12,13 +12,16 @@ echo "LEDE DIY 脚本 1"
 echo "========================================="
 
 # ---------- 0. 强制使用 LuCI 23.05 分支 ----------
-echo "🔧 修改 feeds 源，将 LuCI 锁定到 23.05 分支"
+# ---------- 0. 强制锁定 LuCI 为 openwrt-23.05 分支 ----------
+echo "🔧 修改 feeds 源：将 LuCI 切换到 openwrt-23.05 分支"
 if [ -f "feeds.conf.default" ]; then
+    # 修改已存在的 luci 源，将分支改为 openwrt-23.05
     sed -i 's|^src-git luci .*|src-git luci https://github.com/coolsnowwolf/luci.git;openwrt-23.05|g' feeds.conf.default
 else
+    # 文件不存在则创建
     cat > feeds.conf.default <<EOF
 src-git packages https://github.com/coolsnowwolf/packages
-src-git luci https://github.com/coolsnowwolf/luci.git;23.05
+src-git luci https://github.com/coolsnowwolf/luci.git;openwrt-23.05
 src-git routing https://github.com/coolsnowwolf/routing
 src-git telephony https://github.com/openwrt/telephony.git
 src-git targets https://github.com/coolsnowwolf/targets
